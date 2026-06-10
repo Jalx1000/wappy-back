@@ -72,4 +72,55 @@ export class AnalyticsController {
       new Date(to),
     );
   }
+
+  @Get('ads/overview')
+  @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  @ApiQuery({ name: 'compare', type: Boolean, required: false })
+  getAdsOverview(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('compare') compare?: string,
+  ) {
+    return this.analyticsService.getAdsOverview(
+      brand.id,
+      new Date(from),
+      new Date(to),
+      compare === 'true',
+    );
+  }
+
+  @Get('ads/campaigns')
+  @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  getAdsCampaigns(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.analyticsService.getAdsCampaigns(
+      brand.id,
+      new Date(from),
+      new Date(to),
+    );
+  }
+
+  @Get('web/overview')
+  @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  @ApiQuery({ name: 'compare', type: Boolean, required: false })
+  getWebOverview(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('compare') compare?: string,
+  ) {
+    return this.analyticsService.getWebOverview(
+      brand.id,
+      new Date(from),
+      new Date(to),
+      compare === 'true',
+    );
+  }
 }

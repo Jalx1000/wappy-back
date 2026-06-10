@@ -4,12 +4,14 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { MetricsModule } from '../metrics/metrics.module';
 import { BrandsModule } from '../brands/brands.module';
+import { AnalyticsRelationalPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
   imports: [
     CacheModule.register({ ttl: 300 }),
     MetricsModule,
     BrandsModule,
+    AnalyticsRelationalPersistenceModule,
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
