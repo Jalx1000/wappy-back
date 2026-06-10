@@ -1,0 +1,8 @@
+export const QUEUE_SYNC_SOCIAL = 'sync-social';
+export const QUEUE_SYNC_ADS = 'sync-ads';
+export const QUEUE_SYNC_WEB = 'sync-web';
+export const QUEUE_TOKENS = 'tokens';
+export const QUEUE_REPORTS = 'reports';
+export const QUEUE_EMAILS = 'emails';
+export const QUEUE_MENTIONS = 'mentions';
+export const QUEUE_INSIGHTS = 'insights';

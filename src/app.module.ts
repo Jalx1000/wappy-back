@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
@@ -27,6 +28,27 @@ import { MailerModule } from './mailer/mailer.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseConfigService } from './database/mongoose-config.service';
 import { DatabaseConfig } from './database/config/database-config.type';
+import { BrandsModule } from './brands/brands.module';
+import { QueueModule } from './queues/queue.module';
+import { ConnectionsModule } from './connections/connections.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { OAuthModule } from './oauth/oauth.module';
+import { ReportsModule } from './reports/reports.module';
+import { InsightsModule } from './insights/insights.module';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import {
+  QUEUE_EMAILS,
+  QUEUE_INSIGHTS,
+  QUEUE_MENTIONS,
+  QUEUE_REPORTS,
+  QUEUE_SYNC_ADS,
+  QUEUE_SYNC_SOCIAL,
+  QUEUE_SYNC_WEB,
+  QUEUE_TOKENS,
+} from './queues/queue-names.constants';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -58,6 +80,18 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
       ],
       envFilePath: ['.env'],
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: 'long',
+        ttl: 900000,
+        limit: 100,
+      },
+    ]),
     infrastructureDatabaseModule,
     I18nModule.forRootAsync({
       useFactory: (configService: ConfigService<AllConfigType>) => ({
@@ -92,6 +126,28 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     MailModule,
     MailerModule,
     HomeModule,
+    BrandsModule,
+    QueueModule,
+    ConnectionsModule,
+    MetricsModule,
+    AnalyticsModule,
+    OAuthModule,
+    ReportsModule,
+    InsightsModule,
+    BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
+    BullBoardModule.forFeature(
+      { name: QUEUE_SYNC_SOCIAL, adapter: BullMQAdapter },
+      { name: QUEUE_SYNC_ADS, adapter: BullMQAdapter },
+      { name: QUEUE_SYNC_WEB, adapter: BullMQAdapter },
+      { name: QUEUE_TOKENS, adapter: BullMQAdapter },
+      { name: QUEUE_REPORTS, adapter: BullMQAdapter },
+      { name: QUEUE_EMAILS, adapter: BullMQAdapter },
+      { name: QUEUE_MENTIONS, adapter: BullMQAdapter },
+      { name: QUEUE_INSIGHTS, adapter: BullMQAdapter },
+    ),
   ],
 })
 export class AppModule {}

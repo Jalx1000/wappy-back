@@ -1,14 +1,21 @@
+name: fobo-metrics
+
 services:
   postgres:
     image: postgres:17.9-alpine
     ports:
-      - ${DATABASE_PORT}:5432
+      - "5433:5432"
     volumes:
-      - boilerplate-db:/var/lib/postgresql/data
+      - fobo-metrics-db:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${DATABASE_USERNAME}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - 6380:6379
 
   maildev:
     build:
@@ -22,13 +29,7 @@ services:
     image: adminer
     restart: always
     ports:
-      - 8080:8080
-
-  # Uncomment to use redis
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #     - 6379:6379
+      - 8180:8080
 
   api:
     build:
@@ -36,6 +37,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - ${APP_PORT}:${APP_PORT}
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: node dist/worker
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    environment:
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
 
 volumes:
-  boilerplate-db:
+  fobo-metrics-db:

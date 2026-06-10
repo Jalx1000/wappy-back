@@ -12,4 +12,14 @@ export class HomeController {
   appInfo() {
     return this.service.appInfo();
   }
+
+  @Get('health')
+  health() {
+    return { status: 'ok' };
+  }
+
+  @Get('ready')
+  ready() {
+    return this.service.ready();
+  }
 }

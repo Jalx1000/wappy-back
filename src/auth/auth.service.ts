@@ -28,6 +28,7 @@ import { Session } from '../session/domain/session';
 import { SessionService } from '../session/session.service';
 import { StatusEnum } from '../statuses/statuses.enum';
 import { User } from '../users/domain/user';
+import { BrandsService } from '../brands/brands.service';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService<AllConfigType>,
+    private readonly brandsService: BrandsService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -551,12 +553,18 @@ export class AuthService {
 
     const tokenExpires = Date.now() + ms(tokenExpiresIn);
 
+    const brandIds = await this.brandsService.getBrandIdsForUser(
+      Number(data.id),
+      Number(data.role?.id) as RoleEnum,
+    );
+
     const [token, refreshToken] = await Promise.all([
       await this.jwtService.signAsync(
         {
           id: data.id,
           role: data.role,
           sessionId: data.sessionId,
+          brandIds,
         },
         {
           secret: this.configService.getOrThrow('auth.secret', { infer: true }),

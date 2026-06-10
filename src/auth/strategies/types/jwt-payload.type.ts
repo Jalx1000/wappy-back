@@ -3,6 +3,7 @@ import { User } from '../../../users/domain/user';
 
 export type JwtPayloadType = Pick<User, 'id' | 'role'> & {
   sessionId: Session['id'];
+  brandIds: number[];
   iat: number;
   exp: number;
 };
