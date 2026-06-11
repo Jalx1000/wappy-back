@@ -67,11 +67,43 @@ export class PostsRepository {
     return entities.map(PostMapper.toDomain);
   }
 
-  async findByBrandAndRange(brandId: number, from: Date, to: Date): Promise<Post[]> {
-    const entities = await this.repo.find({
-      where: { brandId, publishedAt: Between(from, to) },
-      order: { publishedAt: 'DESC' },
-    });
+  async findByBrandAndRange(
+    brandId: number,
+    from: Date,
+    to: Date,
+    connectionId?: number,
+    limit: number = 50,
+  ): Promise<Post[]> {
+    const query = this.repo.createQueryBuilder('p')
+      .where('p.brandId = :brandId', { brandId })
+      .andWhere('p.publishedAt BETWEEN :from AND :to', { from, to });
+
+    if (connectionId) {
+      query.andWhere('p.connectionId = :connectionId', { connectionId });
+    }
+
+    const entities = await query
+      .orderBy('p.publishedAt', 'DESC')
+      .take(limit)
+      .getMany();
+
     return entities.map(PostMapper.toDomain);
+  }
+
+  async findById(id: number): Promise<Post | null> {
+    const entity = await this.repo.findOne({
+      where: { id },
+    });
+    return entity ? PostMapper.toDomain(entity) : null;
+  }
+
+  async save(post: Post): Promise<Post> {
+    const entity = PostMapper.toPersistence(post);
+    const saved = await this.repo.save(entity);
+    return PostMapper.toDomain(saved);
+  }
+
+  async delete(id: number): Promise<void> {
+    await this.repo.delete(id);
   }
 }

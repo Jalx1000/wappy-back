@@ -36,6 +36,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { ReportsModule } from './reports/reports.module';
 import { InsightsModule } from './insights/insights.module';
+import { PostsModule } from './posts/posts.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { AssetsModule } from './assets/assets.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -134,6 +138,10 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     OAuthModule,
     ReportsModule,
     InsightsModule,
+    PostsModule,
+    CalendarModule,
+    AssetsModule,
+    ApprovalsModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
