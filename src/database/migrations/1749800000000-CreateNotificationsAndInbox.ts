@@ -46,7 +46,7 @@ export class CreateNotificationsAndInbox1749800000000 implements MigrationInterf
           {
             name: 'metadata',
             type: 'jsonb',
-            default: '{}',
+            default: "'{}'::jsonb",
             isNullable: true,
           },
           {

@@ -46,7 +46,7 @@ export class CreateApprovalsAndAnnotations1749700000000 implements MigrationInte
           {
             name: 'annotations',
             type: 'jsonb',
-            default: '[]',
+            default: "'[]'::jsonb",
             isNullable: true,
           },
           {

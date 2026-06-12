@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { ChannelEnum } from '../../../connections/domain/channel.enum';
@@ -7,36 +7,32 @@ import {
   OAuthAccountResult,
 } from '../../../oauth/oauth-provider.interface';
 
+const AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization';
 const TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 const API_BASE = 'https://api.linkedin.com/v2';
+
 const SCOPES = [
-  'r_liteprofile',
   'r_organization_social',
   'rw_organization_admin',
-  'offline_access',
+  'w_organization_social',
 ];
-
-interface OrgAcl {
-  organization: string;
-}
 
 @Injectable()
 export class LinkedinOAuthService implements ChannelOAuthService {
   readonly urlChannel = 'linkedin';
+  private readonly logger = new Logger(LinkedinOAuthService.name);
 
   constructor(private readonly config: ConfigService) {}
 
   getAuthorizationUrl(state: string): string {
-    const clientId = this.config.getOrThrow<string>('LINKEDIN_CLIENT_ID');
-    const redirectUri = this.config.getOrThrow<string>('LINKEDIN_REDIRECT_URI');
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: SCOPES.join(' '),
+      client_id: this.config.getOrThrow<string>('LINKEDIN_CLIENT_ID'),
+      redirect_uri: this.config.getOrThrow<string>('LINKEDIN_REDIRECT_URI'),
       state,
+      scope: SCOPES.join(' '),
     });
-    return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+    return `${AUTH_URL}?${params.toString()}`;
   }
 
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
@@ -44,7 +40,12 @@ export class LinkedinOAuthService implements ChannelOAuthService {
     const clientSecret = this.config.getOrThrow<string>('LINKEDIN_CLIENT_SECRET');
     const redirectUri = this.config.getOrThrow<string>('LINKEDIN_REDIRECT_URI');
 
-    const { data: tokenData } = await axios.post<Record<string, unknown>>(
+    // 1) Exchange code → access_token
+    const { data: tokenResp } = await axios.post<{
+      access_token: string;
+      expires_in: number;
+      refresh_token?: string;
+    }>(
       TOKEN_URL,
       new URLSearchParams({
         grant_type: 'authorization_code',
@@ -52,48 +53,76 @@ export class LinkedinOAuthService implements ChannelOAuthService {
         redirect_uri: redirectUri,
         client_id: clientId,
         client_secret: clientSecret,
-      }).toString(),
+      }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
 
-    if (tokenData['error']) {
-      throw new Error(
-        `LinkedIn token exchange: ${(tokenData['error_description'] as string) ?? String(tokenData['error'])}`,
-      );
-    }
+    const accessToken = tokenResp.access_token;
+    const expiresAt = new Date(Date.now() + tokenResp.expires_in * 1000);
 
-    const accessToken = tokenData['access_token'] as string;
-    const refreshToken = tokenData['refresh_token'] as string | undefined;
-    const expiresIn = tokenData['expires_in'] as number;
-    const expiresAt = new Date(Date.now() + expiresIn * 1000);
-
-    const { data: aclData } = await axios.get<Record<string, unknown>>(
-      `${API_BASE}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    // 2) Listar organizations donde el usuario es ADMINISTRATOR
+    const { data: aclResp } = await axios.get<{
+      elements: Array<{
+        organizationalTarget: string;
+        role: string;
+        state: string;
+      }>;
+    }>(
+      `${API_BASE}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      },
     );
 
-    const elements: OrgAcl[] = (aclData['elements'] as OrgAcl[]) ?? [];
-    if (elements.length === 0) return [];
-
-    const results: OAuthAccountResult[] = [];
-    for (const acl of elements) {
-      const orgId = acl.organization.split(':').pop() ?? acl.organization;
-      const { data: orgData } = await axios.get<Record<string, unknown>>(
-        `${API_BASE}/organizations/${orgId}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+    const orgUrns = aclResp.elements.map((e) => e.organizationalTarget);
+    if (!orgUrns.length) {
+      this.logger.warn(
+        'LinkedIn OAuth completed but user is not admin of any organization',
       );
-
-      results.push({
-        channel: ChannelEnum.linkedin,
-        accountId: orgId,
-        accountHandle: (orgData['localizedName'] as string) ?? orgId,
-        accessToken,
-        refreshToken,
-        expiresAt,
-        scopes: SCOPES,
-        metadata: { urn: acl.organization, orgId },
-      });
+      return [];
     }
+
+    // 3) Detalles de cada organization
+    const results: OAuthAccountResult[] = [];
+    for (const urn of orgUrns) {
+      const orgId = urn.replace('urn:li:organization:', '');
+      try {
+        const { data: orgData } = await axios.get<{
+          id: number;
+          localizedName: string;
+          vanityName?: string;
+        }>(`${API_BASE}/organizations/${orgId}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        results.push({
+          channel: ChannelEnum.linkedin,
+          accountId: String(orgData.id),
+          accountHandle: orgData.localizedName,
+          accessToken,
+          refreshToken: tokenResp.refresh_token,
+          expiresAt,
+          scopes: SCOPES,
+          metadata: {
+            organizationUrn: urn,
+            organizationId: orgData.id,
+            organizationName: orgData.localizedName,
+            vanityName: orgData.vanityName ?? null,
+          },
+        });
+      } catch (err) {
+        const e = err as {
+          response?: { data?: { message?: string } };
+          message?: string;
+        };
+        this.logger.warn(
+          `Skipping LinkedIn org ${urn}: ${e.response?.data?.message ?? e.message}`,
+        );
+      }
+    }
+
     return results;
   }
 }

@@ -51,13 +51,13 @@ export class CreateCalendarAndAssets1749600000000 implements MigrationInterface 
           {
             name: 'media_urls',
             type: 'jsonb',
-            default: '[]',
+            default: "'[]'::jsonb",
             isNullable: true,
           },
           {
             name: 'metadata',
             type: 'jsonb',
-            default: '{}',
+            default: "'{}'::jsonb",
             isNullable: true,
           },
           {
@@ -149,13 +149,13 @@ export class CreateCalendarAndAssets1749600000000 implements MigrationInterface 
           {
             name: 'tags',
             type: 'jsonb',
-            default: '[]',
+            default: "'[]'::jsonb",
             isNullable: true,
           },
           {
             name: 'metadata',
             type: 'jsonb',
-            default: '{}',
+            default: "'{}'::jsonb",
             isNullable: true,
           },
           {

@@ -69,21 +69,31 @@ export class OAuthController {
     @Query('state') state: string,
     @Query('error') error?: string,
   ) {
-    const frontend = this.config.get<string>('FRONTEND_DOMAIN', 'http://localhost:3200');
+    const frontend = this.config.get<string>('FRONTEND_DOMAIN', 'http://localhost:3001');
+    const portalPath = '/app/connections';
 
     if (error) {
       this.logger.warn(`OAuth error for channel ${channel}: ${error}`);
-      return { url: `${frontend}/connections?error=${encodeURIComponent(error)}`, statusCode: 302 };
+      return {
+        url: `${frontend}${portalPath}?error=${encodeURIComponent(error)}`,
+        statusCode: 302,
+      };
     }
 
     const stateData = await this.stateService.validateAndConsume(state);
     if (!stateData) {
-      return { url: `${frontend}/connections?error=invalid_state`, statusCode: 302 };
+      return {
+        url: `${frontend}${portalPath}?error=invalid_state`,
+        statusCode: 302,
+      };
     }
 
     const svc = this.oauthServices.find((s) => s.urlChannel === channel);
     if (!svc) {
-      return { url: `${frontend}/connections?error=unknown_channel`, statusCode: 302 };
+      return {
+        url: `${frontend}${portalPath}?error=unknown_channel`,
+        statusCode: 302,
+      };
     }
 
     try {
@@ -95,12 +105,15 @@ export class OAuthController {
       );
       const ids = connections.map((c) => c.id).join(',');
       return {
-        url: `${frontend}/connections?success=true&connectionIds=${ids}`,
+        url: `${frontend}${portalPath}?success=true&connectionIds=${ids}`,
         statusCode: 302,
       };
     } catch (err) {
       this.logger.error(`OAuth callback failed for channel ${channel}`, err);
-      return { url: `${frontend}/connections?error=callback_failed`, statusCode: 302 };
+      return {
+        url: `${frontend}${portalPath}?error=callback_failed`,
+        statusCode: 302,
+      };
     }
   }
 }

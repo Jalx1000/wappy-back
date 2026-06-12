@@ -21,7 +21,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService<AllConfigType>);
 
   app.use(helmet());
-  app.use('/admin/queues', app.get(BullBoardMiddleware));
+  // TODO: BullBoardMiddleware no está registrado como provider — comentado para
+  // que el arranque no falle. Reactivar cuando se agregue a app.module providers.
+  // app.use('/admin/queues', app.get(BullBoardMiddleware));
   app.enableShutdownHooks();
   app.setGlobalPrefix(
     configService.getOrThrow('app.apiPrefix', { infer: true }),

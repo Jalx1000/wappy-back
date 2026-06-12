@@ -108,6 +108,7 @@
     "rxjs": "7.8.2",
     "source-map-support": "0.5.21",
     "swagger-ui-express": "5.0.1",
+    "tiktok-business-api-sdk-official": "^1.1.3",
     "typeorm": "0.3.28"
   },
   "devDependencies": {
