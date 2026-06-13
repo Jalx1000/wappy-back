@@ -1,0 +1,15 @@
+FROM node:24.14.1-alpine
+RUN apk add --no-cache bash
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
+
+RUN chmod +x /usr/src/app/startup.worker.sh && \
+    sed -i 's/\r//g' /usr/src/app/startup.worker.sh
+
+ENV NODE_ENV=production
+CMD ["/usr/src/app/startup.worker.sh"]
