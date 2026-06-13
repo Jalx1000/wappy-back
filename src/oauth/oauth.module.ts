@@ -3,6 +3,7 @@ import { OAuthStateService } from './oauth-state.service';
 import { OAuthController } from './oauth.controller';
 import { OAUTH_SERVICES } from './oauth-provider.interface';
 import { MetaOAuthService } from '../channel-providers/providers/meta/meta-oauth.service';
+import { MetaAdsOAuthService } from '../channel-providers/providers/meta/meta-ads-oauth.service';
 import { TiktokOAuthService } from '../channel-providers/providers/tiktok/tiktok-oauth.service';
 import { TiktokAdsOAuthService } from '../channel-providers/providers/tiktok-ads/tiktok-ads-oauth.service';
 import { LinkedinOAuthService } from '../channel-providers/providers/linkedin/linkedin-oauth.service';
@@ -18,6 +19,7 @@ import { ConnectionsModule } from '../connections/connections.module';
   providers: [
     OAuthStateService,
     MetaOAuthService,
+    MetaAdsOAuthService,
     TiktokOAuthService,
     TiktokAdsOAuthService,
     LinkedinOAuthService,
@@ -29,6 +31,7 @@ import { ConnectionsModule } from '../connections/connections.module';
       provide: OAUTH_SERVICES,
       useFactory: (
         meta: MetaOAuthService,
+        metaAds: MetaAdsOAuthService,
         tiktok: TiktokOAuthService,
         tiktokAds: TiktokAdsOAuthService,
         linkedin: LinkedinOAuthService,
@@ -36,9 +39,20 @@ import { ConnectionsModule } from '../connections/connections.module';
         youtube: YoutubeOAuthService,
         googleAds: GoogleAdsOAuthService,
         ga4: Ga4OAuthService,
-      ) => [meta, tiktok, tiktokAds, linkedin, linkedinAds, youtube, googleAds, ga4],
+      ) => [
+        meta,
+        metaAds,
+        tiktok,
+        tiktokAds,
+        linkedin,
+        linkedinAds,
+        youtube,
+        googleAds,
+        ga4,
+      ],
       inject: [
         MetaOAuthService,
+        MetaAdsOAuthService,
         TiktokOAuthService,
         TiktokAdsOAuthService,
         LinkedinOAuthService,

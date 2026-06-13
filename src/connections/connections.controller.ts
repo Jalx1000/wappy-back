@@ -116,6 +116,7 @@ export class ConnectionsController {
     if (channel === ChannelEnum.ga4) return 'web';
     if (
       channel === ChannelEnum.google_ads ||
+      channel === ChannelEnum.meta_ads ||
       channel === ChannelEnum.tiktok_ads ||
       channel === ChannelEnum.linkedin_ads
     )

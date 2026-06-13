@@ -18,6 +18,7 @@ import {
 } from '../queues/queue-names.constants';
 import { SyncSocialProcessor } from './processors/sync-social.processor';
 import { SyncWebProcessor } from './processors/sync-web.processor';
+import { SyncAdsProcessor } from './processors/sync-ads.processor';
 import { TokenRefreshProcessor } from './processors/token-refresh.processor';
 import { TokenRefreshCronService } from './token-refresh-cron.service';
 import { WebSyncCronService } from './web-sync-cron.service';
@@ -80,6 +81,7 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
   providers: [
     SyncSocialProcessor,
     SyncWebProcessor,
+    SyncAdsProcessor,
     TokenRefreshProcessor,
     TokenRefreshCronService,
     WebSyncCronService,

@@ -39,9 +39,9 @@ export class WebDimensionSnapshotEntity {
   @Column({ type: 'decimal', precision: 18, scale: 4, default: 0 })
   conversions: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -7,5 +7,6 @@ export enum ChannelEnum {
   linkedin_ads = 'linkedin_ads',
   youtube = 'youtube',
   google_ads = 'google_ads',
+  meta_ads = 'meta_ads',
   ga4 = 'ga4',
 }

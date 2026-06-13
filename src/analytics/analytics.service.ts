@@ -115,40 +115,86 @@ export class AnalyticsService {
     brandId: number,
     from: Date,
     to: Date,
-    compare?: boolean,
+    _compare?: boolean,
   ) {
     const snapshots = await this.adMetricsRepo.findByBrandAndDateRange(
       brandId,
       from,
       to,
     );
-    const aggregated = this.aggregateAdMetrics(snapshots);
+    const rangeMs = to.getTime() - from.getTime();
+    const prevFrom = new Date(from.getTime() - rangeMs);
+    const prevTo = new Date(from.getTime() - 1);
+    const prevSnapshots = await this.adMetricsRepo.findByBrandAndDateRange(
+      brandId,
+      prevFrom,
+      prevTo,
+    );
 
-    const result: Record<string, unknown> = {
+    const cur = this.aggregateAdMetrics(snapshots);
+    const prev = this.aggregateAdMetrics(prevSnapshots);
+
+    const kpis = [
+      {
+        label: 'Inversión',
+        value: this.formatMoney(cur.spend),
+        delta: this.deltaPct(cur.spend, prev.spend),
+        spark: this.dailyValues(snapshots, 'spend'),
+      },
+      {
+        label: 'ROAS',
+        value: `${cur.roas.toFixed(1)}x`,
+        delta: this.deltaPct(cur.roas, prev.roas),
+        goodDown: false,
+        spark: this.dailyValues(snapshots, 'spend'),
+      },
+      {
+        label: 'Conversiones',
+        value: this.formatNumber(cur.conversions),
+        delta: this.deltaPct(cur.conversions, prev.conversions),
+        spark: this.dailyValues(snapshots, 'conversions'),
+      },
+      {
+        label: 'CPA',
+        value: this.formatMoney(
+          cur.conversions > 0 ? cur.spend / cur.conversions : 0,
+        ),
+        delta: this.deltaPct(
+          cur.conversions > 0 ? cur.spend / cur.conversions : 0,
+          prev.conversions > 0 ? prev.spend / prev.conversions : 0,
+        ),
+        goodDown: true,
+        spark: this.dailyValues(snapshots, 'spend'),
+      },
+    ];
+
+    const platforms = await this.buildAdsPlatforms(brandId, from, to);
+    const spendTrend = this.buildSpendTrend(snapshots, from, to);
+
+    const connection = await this.findAnyAdsConnection(brandId);
+    const lastSyncAt = connection?.lastSyncAt ?? null;
+    const stale = lastSyncAt
+      ? Date.now() - new Date(lastSyncAt).getTime() > WEB_STALE_AFTER_MS
+      : true;
+
+    return {
       brandId,
       from: from.toISOString().slice(0, 10),
       to: to.toISOString().slice(0, 10),
-      ...aggregated,
+      kpis,
+      platforms,
+      spendTrend,
+      stale,
+      lastSyncAt,
     };
-
-    if (compare) {
-      const rangeMs = to.getTime() - from.getTime();
-      const prevFrom = new Date(from.getTime() - rangeMs);
-      const prevTo = new Date(from.getTime() - 1);
-      const prevSnapshots = await this.adMetricsRepo.findByBrandAndDateRange(
-        brandId,
-        prevFrom,
-        prevTo,
-      );
-      const prevAggregated = this.aggregateAdMetrics(prevSnapshots);
-      result.comparison = this.buildAdComparison(aggregated, prevAggregated);
-    }
-
-    return result;
   }
 
   async getAdsCampaigns(brandId: number, from: Date, to: Date) {
-    const campaigns = await this.adCampaignsRepo.findByBrandAndConnection(brandId);
+    const campaigns =
+      await this.adCampaignsRepo.findByBrandAndConnection(brandId);
+
+    const connections = await this.connectionsRepo.findByBrandId(brandId);
+    const connById = new Map(connections.map((c) => [c.id, c]));
 
     const campaignMetrics = await Promise.all(
       campaigns.map(async (campaign) => {
@@ -157,8 +203,20 @@ export class AnalyticsService {
           from,
           to,
         );
-        const aggregated = this.aggregateAdMetrics(metrics);
-        return { ...campaign, ...aggregated };
+        const agg = this.aggregateAdMetrics(metrics);
+        const conn = connById.get(campaign.connectionId);
+        const platform = conn
+          ? this.channelToUiKey(conn.channel)
+          : 'googleads';
+        return {
+          name: campaign.name,
+          platform,
+          status: campaign.status,
+          spend: this.formatMoney(agg.spend),
+          roas: `${agg.roas.toFixed(1)}x`,
+          conv: Math.round(agg.conversions),
+          budget: this.budgetPct(campaign.budget, agg.spend),
+        };
       }),
     );
 
@@ -168,6 +226,145 @@ export class AnalyticsService {
       to: to.toISOString().slice(0, 10),
       campaigns: campaignMetrics,
     };
+  }
+
+  private async buildAdsPlatforms(brandId: number, from: Date, to: Date) {
+    const conns = await this.connectionsRepo.findByBrandId(brandId);
+    const adsConns = conns.filter((c) =>
+      [
+        ChannelEnum.google_ads,
+        ChannelEnum.meta_ads,
+        ChannelEnum.tiktok_ads,
+        ChannelEnum.linkedin_ads,
+      ].includes(c.channel),
+    );
+
+    const platforms: Array<{
+      ch: string;
+      spend: string;
+      roas: string;
+      conv: number;
+      cpa: string;
+      pct: number;
+    }> = [];
+
+    let maxSpend = 0;
+
+    for (const c of adsConns) {
+      const campaigns =
+        await this.adCampaignsRepo.findByBrandAndConnection(brandId, c.id);
+      let agg = { spend: 0, conversions: 0, impressions: 0, clicks: 0 };
+      for (const campaign of campaigns) {
+        const snaps = await this.adMetricsRepo.findByCampaignAndDateRange(
+          campaign.id,
+          from,
+          to,
+        );
+        const a = this.aggregateAdMetrics(snaps);
+        agg.spend += a.spend;
+        agg.conversions += a.conversions;
+        agg.impressions += a.impressions;
+        agg.clicks += a.clicks;
+      }
+      if (agg.spend > maxSpend) maxSpend = agg.spend;
+
+      const roas = agg.spend > 0 ? agg.conversions / agg.spend : 0;
+      const cpa = agg.conversions > 0 ? agg.spend / agg.conversions : 0;
+
+      platforms.push({
+        ch: this.channelToUiKey(c.channel),
+        spend: this.formatMoney(agg.spend),
+        roas: `${roas.toFixed(1)}x`,
+        conv: Math.round(agg.conversions),
+        cpa: this.formatMoney(cpa),
+        pct: 0, // filled below
+      });
+    }
+
+    return platforms.map((p) => ({
+      ...p,
+      pct: maxSpend > 0
+        ? Math.round((this.parseMoney(p.spend) / maxSpend) * 100)
+        : 0,
+    }));
+  }
+
+  private buildSpendTrend(
+    snapshots: AdMetricSnapshot[],
+    from: Date,
+    to: Date,
+  ): number[] {
+    const days: string[] = [];
+    const cursor = new Date(from);
+    while (cursor <= to) {
+      days.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    const byDay = new Map<string, number>();
+    for (const s of snapshots) {
+      const k = new Date(s.date).toISOString().slice(0, 10);
+      byDay.set(k, (byDay.get(k) ?? 0) + Number(s.spend ?? 0));
+    }
+    return days.map((d) => Math.round(byDay.get(d) ?? 0));
+  }
+
+  private dailyValues(
+    snapshots: AdMetricSnapshot[],
+    key: 'spend' | 'conversions',
+  ): number[] {
+    const byDay = new Map<string, number>();
+    for (const s of snapshots) {
+      const k = new Date(s.date).toISOString().slice(0, 10);
+      byDay.set(k, (byDay.get(k) ?? 0) + Number(s[key] ?? 0));
+    }
+    return Array.from(byDay.values()).slice(-7);
+  }
+
+  private async findAnyAdsConnection(brandId: number) {
+    const conns = await this.connectionsRepo.findByBrandId(brandId);
+    return conns.find((c) =>
+      [
+        ChannelEnum.google_ads,
+        ChannelEnum.meta_ads,
+        ChannelEnum.tiktok_ads,
+        ChannelEnum.linkedin_ads,
+      ].includes(c.channel),
+    );
+  }
+
+  private channelToUiKey(channel: ChannelEnum): string {
+    if (channel === ChannelEnum.google_ads) return 'googleads';
+    if (channel === ChannelEnum.meta_ads) return 'metaads';
+    if (channel === ChannelEnum.tiktok_ads) return 'tiktokads';
+    if (channel === ChannelEnum.linkedin_ads) return 'linkedinads';
+    return channel;
+  }
+
+  private budgetPct(budget: number | undefined, spend: number): number {
+    if (!budget || budget <= 0) return 0;
+    return Math.min(100, Math.round((spend / budget) * 100));
+  }
+
+  private formatMoney(v: number): string {
+    if (v >= 1000) return `$${(v / 1000).toFixed(1)}K`;
+    return `$${v.toFixed(2)}`;
+  }
+
+  private formatNumber(v: number): string {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
+    return String(Math.round(v));
+  }
+
+  private parseMoney(s: string): number {
+    const m = s.replace('$', '').replace('K', '');
+    const n = parseFloat(m);
+    return s.includes('K') ? n * 1000 : n;
+  }
+
+  private deltaPct(current: number, previous: number): number {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Number((((current - previous) / previous) * 100).toFixed(1));
   }
 
   async getWebOverview(

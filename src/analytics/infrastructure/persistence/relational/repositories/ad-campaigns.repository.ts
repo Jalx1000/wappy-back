@@ -22,13 +22,9 @@ export class AdCampaignsRepository {
     brandId: number,
     connectionId?: number,
   ): Promise<AdCampaign[]> {
-    const query = this.repository.createQueryBuilder().where('brandId = :brandId', { brandId });
-
-    if (connectionId) {
-      query.andWhere('connectionId = :connectionId', { connectionId });
-    }
-
-    const entities = await query.getMany();
+    const where: { brandId: number; connectionId?: number } = { brandId };
+    if (connectionId) where.connectionId = connectionId;
+    const entities = await this.repository.find({ where });
     return entities.map((e) => this.mapper.toDomain(e));
   }
 

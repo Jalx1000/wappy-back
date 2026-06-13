@@ -40,6 +40,6 @@ export class AdMetricSnapshotEntity {
   @Column({ type: 'decimal', precision: 8, scale: 4, nullable: true })
   roas?: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

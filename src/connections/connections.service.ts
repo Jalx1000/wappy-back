@@ -19,6 +19,7 @@ import { WebDimensionEnum } from '../analytics/domain/web-dimension.enum';
 
 const ADS_CHANNELS = new Set<ChannelEnum>([
   ChannelEnum.google_ads,
+  ChannelEnum.meta_ads,
   ChannelEnum.tiktok_ads,
   ChannelEnum.linkedin_ads,
 ]);
@@ -168,8 +169,14 @@ export class ConnectionsService {
 
     if (ADS_CHANNELS.has(connection.channel)) {
       const job = await this.syncAdsQueue.add(
-        'sync-connection',
-        { brandId, connectionId: id, dateFrom: from, dateTo: to },
+        'ads-sync',
+        {
+          brandId,
+          connectionId: id,
+          kind: 'sync',
+          dateFrom: from.toISOString(),
+          dateTo: to.toISOString(),
+        },
         { jobId: `ads-${id}-${Date.now()}` },
       );
       return { jobIds: [job.id] };

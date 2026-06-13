@@ -13,7 +13,7 @@ export class AdCampaignEntity {
   @Column({ name: 'connection_id' })
   connectionId: number;
 
-  @Column()
+  @Column({ name: 'external_id' })
   externalId: string;
 
   @Column()
@@ -31,15 +31,15 @@ export class AdCampaignEntity {
   @Column({ nullable: true, default: 'USD' })
   currency?: string;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ name: 'start_date', type: 'date', nullable: true })
   startDate?: Date;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ name: 'end_date', type: 'date', nullable: true })
   endDate?: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
