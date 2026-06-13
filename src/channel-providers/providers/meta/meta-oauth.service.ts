@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { FacebookAdsApi, User } from 'facebook-nodejs-business-sdk';
 import { ChannelEnum } from '../../../connections/domain/channel.enum';
 import {
   ChannelOAuthService,
@@ -71,13 +70,13 @@ export class MetaOAuthService implements ChannelOAuthService {
       shortLived,
     );
 
-    // 3) Init SDK con el long-lived user token y listar pages (con IG vinculado)
-    FacebookAdsApi.init(longLived.accessToken);
-
-    const pages = await this.fetchUserPagesViaSdk();
+    // 3) Listar pages del usuario via Graph API directo (más confiable y
+    // debugueable que el SDK; además permite loggear granted permissions).
+    const pages = await this.fetchUserPages(longLived.accessToken);
     if (!pages.length) {
       this.logger.warn(
-        'Meta OAuth completed but user has no manageable pages',
+        'Meta OAuth completed but user has no manageable pages. ' +
+          'Ver logs anteriores para granted permissions y respuesta de /me/accounts.',
       );
     }
 
@@ -176,8 +175,7 @@ export class MetaOAuthService implements ChannelOAuthService {
     };
   }
 
-  private async fetchUserPagesViaSdk(): Promise<PageData[]> {
-    const me = new User('me');
+  private async fetchUserPages(accessToken: string): Promise<PageData[]> {
     const fields = [
       'id',
       'name',
@@ -185,17 +183,75 @@ export class MetaOAuthService implements ChannelOAuthService {
       'category',
       'category_list',
       'instagram_business_account{id,username,profile_picture_url}',
-    ];
-    const cursor = await me.getAccounts(fields, { limit: 100 });
+    ].join(',');
 
-    // cursor is iterable; cada elemento es un Page wrapper con _data poblado
-    const pages: PageData[] = [];
-    for (const entry of cursor as unknown as Array<{
-      _data?: PageData;
-    }>) {
-      const data = entry._data;
-      if (data?.id) pages.push(data);
+    const params = new URLSearchParams({
+      access_token: accessToken,
+      fields,
+      limit: '100',
+    });
+
+    // 1) Primero verificar quién es el usuario logueado (debug útil)
+    try {
+      const { data: meData } = await axios.get<{
+        id: string;
+        name?: string;
+        email?: string;
+      }>(`${GRAPH_URL}/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name,email`);
+      this.logger.log(
+        `Meta OAuth: authenticated user → id=${meData.id} name=${meData.name ?? 'n/a'}`,
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to fetch /me: ${(err as Error).message}`);
     }
+
+    // 2) Verificar qué permisos otorgó el usuario (clave para diagnosticar)
+    try {
+      const { data: permsData } = await axios.get<{
+        data: Array<{ permission: string; status: string }>;
+      }>(`${GRAPH_URL}/me/permissions?access_token=${encodeURIComponent(accessToken)}`);
+      const granted = permsData.data
+        .filter((p) => p.status === 'granted')
+        .map((p) => p.permission);
+      const declined = permsData.data
+        .filter((p) => p.status === 'declined')
+        .map((p) => p.permission);
+      this.logger.log(
+        `Meta OAuth: granted=[${granted.join(',')}] declined=[${declined.join(',')}]`,
+      );
+      // Si pages_show_list no está granted, el /me/accounts SIEMPRE devolverá vacío.
+      if (!granted.includes('pages_show_list')) {
+        this.logger.error(
+          'Meta OAuth: user did NOT grant pages_show_list — /me/accounts will return empty. ' +
+            'Probable causa: usuario no aceptó ese permission en el consent dialog.',
+        );
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to fetch /me/permissions: ${(err as Error).message}`);
+    }
+
+    // 3) Llamada real para listar pages
+    const url = `${GRAPH_URL}/me/accounts?${params.toString()}`;
+    const { data } = await axios.get<{
+      data?: PageData[];
+      paging?: unknown;
+      error?: { message: string; type: string; code: number };
+    }>(url);
+
+    if (data.error) {
+      this.logger.error(
+        `Meta OAuth: /me/accounts returned error → ${JSON.stringify(data.error)}`,
+      );
+      throw new Error(`Meta /me/accounts failed: ${data.error.message}`);
+    }
+
+    const pages = data.data ?? [];
+    this.logger.log(
+      `Meta OAuth: /me/accounts returned ${pages.length} pages → [${pages
+        .map((p) => `${p.id}:${p.name}`)
+        .join(', ')}]`,
+    );
+
     return pages;
   }
 }
