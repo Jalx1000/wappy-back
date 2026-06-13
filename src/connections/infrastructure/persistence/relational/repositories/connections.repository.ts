@@ -75,6 +75,13 @@ export class ConnectionsRepository {
     return entities.map(ConnectionMapper.toDomain);
   }
 
+  async findConnectedByChannel(channel: ChannelEnum): Promise<Connection[]> {
+    const entities = await this.repo.find({
+      where: { channel, status: ConnectionStatusEnum.connected },
+    });
+    return entities.map(ConnectionMapper.toDomain);
+  }
+
   async softDelete(id: number): Promise<void> {
     await this.repo.softDelete(id);
   }

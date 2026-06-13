@@ -5,18 +5,22 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { ChannelEnum } from './domain/channel.enum';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
 import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
@@ -84,5 +88,38 @@ export class ConnectionsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.connectionsService.enqueueSync(brand.id, id);
+  }
+
+  @Get(':id/sync-jobs/:jobId')
+  @ApiParam({ name: 'id', type: Number })
+  @ApiParam({ name: 'jobId', type: String })
+  @ApiQuery({
+    name: 'queue',
+    enum: ['web', 'ads', 'social'],
+    required: false,
+  })
+  async getSyncJob(
+    @CurrentBrand() brand: Brand,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('jobId') jobId: string,
+    @Query('queue') queueHint?: 'web' | 'ads' | 'social',
+  ) {
+    const connection = await this.connectionsService.findOne(brand.id, id);
+    const queueName =
+      queueHint ?? this.resolveQueue(connection.channel);
+    const result = await this.connectionsService.getJobState(queueName, jobId);
+    if (!result) throw new NotFoundException(`Job ${jobId} not found`);
+    return result;
+  }
+
+  private resolveQueue(channel: ChannelEnum): 'web' | 'ads' | 'social' {
+    if (channel === ChannelEnum.ga4) return 'web';
+    if (
+      channel === ChannelEnum.google_ads ||
+      channel === ChannelEnum.tiktok_ads ||
+      channel === ChannelEnum.linkedin_ads
+    )
+      return 'ads';
+    return 'social';
   }
 }

@@ -17,12 +17,15 @@ import {
   QUEUE_TOKENS,
 } from '../queues/queue-names.constants';
 import { SyncSocialProcessor } from './processors/sync-social.processor';
+import { SyncWebProcessor } from './processors/sync-web.processor';
 import { TokenRefreshProcessor } from './processors/token-refresh.processor';
 import { TokenRefreshCronService } from './token-refresh-cron.service';
+import { WebSyncCronService } from './web-sync-cron.service';
 import { ReportProcessor } from './processors/report.processor';
 import { InsightProcessor } from './processors/insight.processor';
 import { ConnectionsRelationalPersistenceModule } from '../connections/infrastructure/persistence/relational/relational-persistence.module';
 import { MetricsRelationalPersistenceModule } from '../metrics/infrastructure/persistence/relational/relational-persistence.module';
+import { AnalyticsRelationalPersistenceModule } from '../analytics/infrastructure/persistence/relational/relational-persistence.module';
 import { ReportsRelationalPersistenceModule } from '../reports/infrastructure/persistence/relational/relational-persistence.module';
 import { InsightsRelationalPersistenceModule } from '../insights/infrastructure/persistence/relational/relational-persistence.module';
 import { EncryptionModule } from '../encryption/encryption.module';
@@ -68,6 +71,7 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
     ),
     ConnectionsRelationalPersistenceModule,
     MetricsRelationalPersistenceModule,
+    AnalyticsRelationalPersistenceModule,
     ReportsRelationalPersistenceModule,
     InsightsRelationalPersistenceModule,
     EncryptionModule,
@@ -75,8 +79,10 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
   ],
   providers: [
     SyncSocialProcessor,
+    SyncWebProcessor,
     TokenRefreshProcessor,
     TokenRefreshCronService,
+    WebSyncCronService,
     ReportProcessor,
     InsightProcessor,
   ],

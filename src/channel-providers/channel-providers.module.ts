@@ -44,6 +44,6 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
       ],
     },
   ],
-  exports: [CHANNEL_PROVIDERS],
+  exports: [CHANNEL_PROVIDERS, Ga4Provider, GoogleAdsProvider],
 })
 export class ChannelProvidersModule {}

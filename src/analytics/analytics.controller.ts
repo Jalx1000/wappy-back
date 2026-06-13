@@ -109,18 +109,33 @@ export class AnalyticsController {
   @Get('web/overview')
   @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
   @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
-  @ApiQuery({ name: 'compare', type: Boolean, required: false })
+  @ApiQuery({ name: 'city', type: String, required: false })
   getWebOverview(
     @CurrentBrand() brand: Brand,
     @Query('from') from: string,
     @Query('to') to: string,
-    @Query('compare') compare?: string,
+    @Query('city') city?: string,
   ) {
     return this.analyticsService.getWebOverview(
       brand.id,
       new Date(from),
       new Date(to),
-      compare === 'true',
+      city,
+    );
+  }
+
+  @Get('web/cities')
+  @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  getWebCities(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.analyticsService.listWebCities(
+      brand.id,
+      new Date(from),
+      new Date(to),
     );
   }
 }

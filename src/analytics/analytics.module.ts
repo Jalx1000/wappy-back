@@ -5,6 +5,7 @@ import { AnalyticsService } from './analytics.service';
 import { MetricsModule } from '../metrics/metrics.module';
 import { BrandsModule } from '../brands/brands.module';
 import { AnalyticsRelationalPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
+import { ConnectionsRelationalPersistenceModule } from '../connections/infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { AnalyticsRelationalPersistenceModule } from './infrastructure/persisten
     MetricsModule,
     BrandsModule,
     AnalyticsRelationalPersistenceModule,
+    ConnectionsRelationalPersistenceModule,
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],

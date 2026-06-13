@@ -11,4 +11,10 @@ export enum MetricEnum {
   likes = 'likes',
   comments = 'comments',
   shares = 'shares',
+  // Web (GA4) metrics
+  users = 'users',
+  page_views = 'page_views',
+  bounce_rate = 'bounce_rate',
+  engagement_rate_pct = 'engagement_rate_pct',
+  avg_session_duration = 'avg_session_duration',
 }
