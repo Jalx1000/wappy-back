@@ -32,7 +32,19 @@ export class BrandsService {
     brand.description = dto.description ?? null;
     brand.isActive = dto.isActive ?? true;
 
-    const created = await this.brandsRepo.create(brand);
+    let created: Brand;
+    try {
+      created = await this.brandsRepo.create(brand);
+    } catch (err) {
+      // Postgres unique violation: el UNIQUE INDEX puede atraparlo si
+      // findBySlug() falla por race condition o por rows soft-deleted que
+      // findBySlug() no ve pero el índice sí. En vez de 500, lanzamos 409.
+      const e = err as { code?: string; constraint?: string };
+      if (e?.code === '23505' && e?.constraint === 'IDX_brand_slug') {
+        throw new ConflictException(`Slug "${dto.slug}" is already taken`);
+      }
+      throw err;
+    }
 
     // Auto-add creator as brand admin
     await this.membershipsRepo.upsert(
