@@ -7,8 +7,7 @@ import {
   OAuthAccountResult,
 } from '../../../oauth/oauth-provider.interface';
 
-const GRAPH_VERSION = 'v19.0';
-const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const GRAPH_VERSION_DEFAULT = 'v25.0';
 
 const SCOPES = ['ads_read', 'ads_management', 'business_management'];
 
@@ -28,6 +27,14 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
 
   constructor(private readonly config: ConfigService) {}
 
+  private get graphVersion(): string {
+    return this.config.get<string>('META_GRAPH_VERSION', GRAPH_VERSION_DEFAULT);
+  }
+
+  private get graphUrl(): string {
+    return `https://graph.facebook.com/${this.graphVersion}`;
+  }
+
   getAuthorizationUrl(state: string): string {
     const params = new URLSearchParams({
       client_id: this.config.getOrThrow<string>('META_APP_ID'),
@@ -36,7 +43,7 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
       state,
       response_type: 'code',
     });
-    return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${params.toString()}`;
+    return `https://www.facebook.com/${this.graphVersion}/dialog/oauth?${params.toString()}`;
   }
 
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
@@ -93,7 +100,7 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
       code,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
       throw new Error(`Meta Ads token failed: ${JSON.stringify(data['error'])}`);
@@ -113,7 +120,7 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
       fb_exchange_token: shortToken,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     const expiresIn = (data['expires_in'] as number) ?? 5183944;
     return {
@@ -137,7 +144,7 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
       limit: '100',
     });
     const { data } = await axios.get<{ data?: AdAccount[] }>(
-      `${GRAPH_URL}/me/adaccounts?${params.toString()}`,
+      `${this.graphUrl}/me/adaccounts?${params.toString()}`,
     );
     return data.data ?? [];
   }

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
+import { DataSource } from 'typeorm';
 import { Connection } from './domain/connection';
 import { ConnectionsRepository } from './infrastructure/persistence/relational/repositories/connections.repository';
 import { CreateConnectionDto } from './dto/create-connection.dto';
@@ -41,6 +43,7 @@ export class ConnectionsService {
     @InjectQueue(QUEUE_SYNC_SOCIAL) private readonly syncSocialQueue: Queue,
     @InjectQueue(QUEUE_SYNC_ADS) private readonly syncAdsQueue: Queue,
     @InjectQueue(QUEUE_SYNC_WEB) private readonly syncWebQueue: Queue,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async create(brandId: number, dto: CreateConnectionDto): Promise<Connection> {
@@ -261,5 +264,61 @@ export class ConnectionsService {
 
   async findActiveByChannel(channel: ChannelEnum): Promise<Connection[]> {
     return this.connectionsRepo.findConnectedByChannel(channel);
+  }
+
+  /**
+   * Move a connection (and ALL its historical data) to a different brand.
+   * Updates connection.brand_id + cascades to metric_snapshot,
+   * web_dimension_snapshot, ad_campaign and ad_metric_snapshot in a single
+   * transaction. Returns the updated connection.
+   */
+  async reassignBrand(
+    currentBrandId: number,
+    id: number,
+    newBrandId: number,
+  ): Promise<Connection> {
+    const connection = await this.findOne(currentBrandId, id);
+    if (connection.brandId === newBrandId) return connection;
+
+    await this.dataSource.transaction(async (em) => {
+      await em.query('UPDATE connection SET "brandId" = $1 WHERE id = $2', [
+        newBrandId,
+        id,
+      ]);
+      await em.query(
+        'UPDATE metric_snapshot SET "brandId" = $1 WHERE "connectionId" = $2',
+        [newBrandId, id],
+      );
+      await em.query(
+        'UPDATE post SET "brandId" = $1 WHERE "connectionId" = $2',
+        [newBrandId, id],
+      );
+      await em.query(
+        'UPDATE web_dimension_snapshot SET brand_id = $1 WHERE connection_id = $2',
+        [newBrandId, id],
+      );
+
+      // Ads: ad_campaign holds connection_id, ad_metric_snapshot holds
+      // campaign_id (so propagating via campaigns).
+      const campaigns: { id: number }[] = await em.query(
+        'SELECT id FROM ad_campaign WHERE connection_id = $1',
+        [id],
+      );
+      if (campaigns.length > 0) {
+        await em.query(
+          'UPDATE ad_campaign SET brand_id = $1 WHERE connection_id = $2',
+          [newBrandId, id],
+        );
+        const campaignIds = campaigns.map((c) => c.id);
+        await em.query(
+          'UPDATE ad_metric_snapshot SET brand_id = $1 WHERE campaign_id = ANY($2::int[])',
+          [newBrandId, campaignIds],
+        );
+      }
+    });
+
+    const updated = await this.connectionsRepo.findById(id);
+    if (!updated) throw new NotFoundException(`Connection #${id} not found`);
+    return updated;
   }
 }

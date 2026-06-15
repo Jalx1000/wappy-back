@@ -12,7 +12,7 @@ import {
   TokenData,
 } from '../../channel-provider.interface';
 
-const GRAPH_URL = 'https://graph.facebook.com/v19.0';
+const GRAPH_VERSION_DEFAULT = 'v25.0';
 
 const IG_METRIC_MAP: Record<string, string> = {
   reach: MetricEnum.reach,
@@ -45,6 +45,14 @@ export class MetaInstagramProvider implements ChannelProvider {
 
   constructor(private readonly config: ConfigService) {}
 
+  private get graphUrl(): string {
+    const v = this.config.get<string>(
+      'META_GRAPH_VERSION',
+      GRAPH_VERSION_DEFAULT,
+    );
+    return `https://graph.facebook.com/${v}`;
+  }
+
   async fetchMetrics(
     connection: Connection,
     dateRange: DateRange,
@@ -62,7 +70,7 @@ export class MetaInstagramProvider implements ChannelProvider {
     });
 
     const { data } = await axios.get<{ data: IgInsightMetric[] }>(
-      `${GRAPH_URL}/${connection.accountId}/insights?${params.toString()}`,
+      `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
       throw new Error(`IG insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
@@ -88,7 +96,7 @@ export class MetaInstagramProvider implements ChannelProvider {
       access_token: connection.accessToken,
     });
     const { data: profile } = await axios.get<{ followers_count?: number }>(
-      `${GRAPH_URL}/${connection.accountId}?${profileParams.toString()}`,
+      `${this.graphUrl}/${connection.accountId}?${profileParams.toString()}`,
     );
     if (profile.followers_count !== undefined && rows.length > 0) {
       const latestDate = rows.reduce((d, r) => (r.date > d ? r.date : d), rows[0].date);
@@ -120,7 +128,7 @@ export class MetaInstagramProvider implements ChannelProvider {
     });
 
     const { data } = await axios.get<{ data: IgMediaItem[] }>(
-      `${GRAPH_URL}/${connection.accountId}/media?${params.toString()}`,
+      `${this.graphUrl}/${connection.accountId}/media?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
       throw new Error(`IG media: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
@@ -153,7 +161,7 @@ export class MetaInstagramProvider implements ChannelProvider {
       fb_exchange_token: connection.accessToken,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
       throw new Error(`IG token refresh: ${JSON.stringify(data['error'])}`);

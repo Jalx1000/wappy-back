@@ -12,7 +12,7 @@ import {
   TokenData,
 } from '../../channel-provider.interface';
 
-const GRAPH_URL = 'https://graph.facebook.com/v19.0';
+const GRAPH_VERSION_DEFAULT = 'v25.0';
 
 const PAGE_METRIC_MAP: Record<string, string> = {
   page_fan_count: MetricEnum.followers,
@@ -46,6 +46,14 @@ export class MetaFacebookPageProvider implements ChannelProvider {
 
   constructor(private readonly config: ConfigService) {}
 
+  private get graphUrl(): string {
+    const v = this.config.get<string>(
+      'META_GRAPH_VERSION',
+      GRAPH_VERSION_DEFAULT,
+    );
+    return `https://graph.facebook.com/${v}`;
+  }
+
   async fetchMetrics(
     connection: Connection,
     dateRange: DateRange,
@@ -63,7 +71,7 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     });
 
     const { data } = await axios.get<{ data: PageInsightMetric[] }>(
-      `${GRAPH_URL}/${connection.accountId}/insights?${params.toString()}`,
+      `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
       throw new Error(`Meta page insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
@@ -102,7 +110,7 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     });
 
     const { data } = await axios.get<{ data: PagePost[] }>(
-      `${GRAPH_URL}/${connection.accountId}/posts?${params.toString()}`,
+      `${this.graphUrl}/${connection.accountId}/posts?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
       throw new Error(`Meta page posts: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
@@ -136,7 +144,7 @@ export class MetaFacebookPageProvider implements ChannelProvider {
       fb_exchange_token: connection.accessToken,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
       throw new Error(`Meta token refresh: ${JSON.stringify(data['error'])}`);

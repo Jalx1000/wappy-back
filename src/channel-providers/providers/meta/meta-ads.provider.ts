@@ -15,8 +15,7 @@ import {
 } from '../../channel-provider.interface';
 import { AdsFetchResult } from '../google-ads/google-ads.provider';
 
-const GRAPH_VERSION = 'v19.0';
-const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const GRAPH_VERSION_DEFAULT = 'v25.0';
 
 interface MetaCampaign {
   id: string;
@@ -47,6 +46,14 @@ export class MetaAdsProvider implements ChannelProvider {
   private readonly logger = new Logger(MetaAdsProvider.name);
 
   constructor(private readonly config: ConfigService) {}
+
+  private get graphUrl(): string {
+    const v = this.config.get<string>(
+      'META_GRAPH_VERSION',
+      GRAPH_VERSION_DEFAULT,
+    );
+    return `https://graph.facebook.com/${v}`;
+  }
 
   async fetchMetrics(
     connection: Connection,
@@ -206,7 +213,7 @@ export class MetaAdsProvider implements ChannelProvider {
       fields,
       limit: '200',
     });
-    const url = `${GRAPH_URL}/act_${accountId}/campaigns?${params.toString()}`;
+    const url = `${this.graphUrl}/act_${accountId}/campaigns?${params.toString()}`;
     const { data } = await axios.get<{ data?: MetaCampaign[] }>(url);
     return data.data ?? [];
   }
@@ -238,7 +245,7 @@ export class MetaAdsProvider implements ChannelProvider {
       time_range: JSON.stringify({ since, until }),
       limit: '500',
     });
-    const url = `${GRAPH_URL}/act_${accountId}/insights?${params.toString()}`;
+    const url = `${this.graphUrl}/act_${accountId}/insights?${params.toString()}`;
     const { data } = await axios.get<{ data?: MetaInsight[] }>(url);
     return data.data ?? [];
   }

@@ -3,6 +3,7 @@ import { MockChannelProvider } from './mock-channel.provider';
 import { MetaFacebookPageProvider } from './providers/meta/meta-facebook-page.provider';
 import { MetaInstagramProvider } from './providers/meta/meta-instagram.provider';
 import { MetaAdsProvider } from './providers/meta/meta-ads.provider';
+import { InstagramLoginProvider } from './providers/instagram-login/instagram-login.provider';
 import { TiktokProvider } from './providers/tiktok/tiktok.provider';
 import { TiktokAdsProvider } from './providers/tiktok-ads/tiktok-ads.provider';
 import { LinkedinProvider } from './providers/linkedin/linkedin.provider';
@@ -19,6 +20,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     MetaFacebookPageProvider,
     MetaInstagramProvider,
     MetaAdsProvider,
+    InstagramLoginProvider,
     TiktokProvider,
     TiktokAdsProvider,
     LinkedinProvider,
@@ -32,6 +34,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
         metaFbPage: MetaFacebookPageProvider,
         metaIg: MetaInstagramProvider,
         metaAds: MetaAdsProvider,
+        igLogin: InstagramLoginProvider,
         tiktok: TiktokProvider,
         tiktokAds: TiktokAdsProvider,
         linkedin: LinkedinProvider,
@@ -44,6 +47,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
         metaFbPage,
         metaIg,
         metaAds,
+        igLogin,
         tiktok,
         tiktokAds,
         linkedin,
@@ -57,6 +61,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
         MetaFacebookPageProvider,
         MetaInstagramProvider,
         MetaAdsProvider,
+        InstagramLoginProvider,
         TiktokProvider,
         TiktokAdsProvider,
         LinkedinProvider,
@@ -75,6 +80,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     MetaAdsProvider,
     TiktokAdsProvider,
     LinkedinAdsProvider,
+    InstagramLoginProvider,
   ],
 })
 export class ChannelProvidersModule {}

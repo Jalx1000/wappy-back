@@ -3,6 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { QUEUE_TOKENS } from '../../queues/queue-names.constants';
 import { ConnectionsRepository } from '../../connections/infrastructure/persistence/relational/repositories/connections.repository';
+import { OAuthDiscoveriesRepository } from '../../oauth/discovery/infrastructure/persistence/relational/repositories/oauth-discoveries.repository';
 import { EncryptionService } from '../../encryption/encryption.service';
 import { CHANNEL_PROVIDERS } from '../../channel-providers/channel-providers.module';
 import { ChannelProvider } from '../../channel-providers/channel-provider.interface';
@@ -23,14 +24,22 @@ export class TokenRefreshProcessor extends WorkerHost {
   constructor(
     private readonly connectionsRepo: ConnectionsRepository,
     private readonly encryptionService: EncryptionService,
+    private readonly discoveriesRepo: OAuthDiscoveriesRepository,
     @Inject(CHANNEL_PROVIDERS) private readonly providers: ChannelProvider[],
   ) {
     super();
   }
 
   async process(job: Job<TokenRefreshPayload>): Promise<void> {
-    const { connectionId } = job.data;
+    if (job.name === 'discovery-cleanup') {
+      const deleted = await this.discoveriesRepo.deleteExpired();
+      if (deleted > 0) {
+        this.logger.log(`Cleaned up ${deleted} expired oauth_discovery rows`);
+      }
+      return;
+    }
 
+    const { connectionId } = job.data;
     if (connectionId) {
       await this.refreshOne(connectionId);
     } else {

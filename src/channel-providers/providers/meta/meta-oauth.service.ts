@@ -7,8 +7,7 @@ import {
   OAuthAccountResult,
 } from '../../../oauth/oauth-provider.interface';
 
-const GRAPH_VERSION = 'v19.0';
-const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const GRAPH_VERSION_DEFAULT = 'v25.0';
 
 const SCOPES = [
   'pages_show_list',
@@ -39,6 +38,14 @@ export class MetaOAuthService implements ChannelOAuthService {
 
   constructor(private readonly config: ConfigService) {}
 
+  private get graphVersion(): string {
+    return this.config.get<string>('META_GRAPH_VERSION', GRAPH_VERSION_DEFAULT);
+  }
+
+  private get graphUrl(): string {
+    return `https://graph.facebook.com/${this.graphVersion}`;
+  }
+
   getAuthorizationUrl(state: string): string {
     const params = new URLSearchParams({
       client_id: this.config.getOrThrow<string>('META_APP_ID'),
@@ -47,7 +54,7 @@ export class MetaOAuthService implements ChannelOAuthService {
       state,
       response_type: 'code',
     });
-    return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${params.toString()}`;
+    return `https://www.facebook.com/${this.graphVersion}/dialog/oauth?${params.toString()}`;
   }
 
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
@@ -139,7 +146,7 @@ export class MetaOAuthService implements ChannelOAuthService {
       code,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
       throw new Error(
@@ -161,7 +168,7 @@ export class MetaOAuthService implements ChannelOAuthService {
       fb_exchange_token: shortToken,
     });
     const { data } = await axios.get<Record<string, unknown>>(
-      `${GRAPH_URL}/oauth/access_token?${params.toString()}`,
+      `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
       throw new Error(
@@ -197,7 +204,7 @@ export class MetaOAuthService implements ChannelOAuthService {
         id: string;
         name?: string;
         email?: string;
-      }>(`${GRAPH_URL}/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name,email`);
+      }>(`${this.graphUrl}/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name,email`);
       this.logger.log(
         `Meta OAuth: authenticated user → id=${meData.id} name=${meData.name ?? 'n/a'}`,
       );
@@ -209,7 +216,7 @@ export class MetaOAuthService implements ChannelOAuthService {
     try {
       const { data: permsData } = await axios.get<{
         data: Array<{ permission: string; status: string }>;
-      }>(`${GRAPH_URL}/me/permissions?access_token=${encodeURIComponent(accessToken)}`);
+      }>(`${this.graphUrl}/me/permissions?access_token=${encodeURIComponent(accessToken)}`);
       const granted = permsData.data
         .filter((p) => p.status === 'granted')
         .map((p) => p.permission);
@@ -231,7 +238,7 @@ export class MetaOAuthService implements ChannelOAuthService {
     }
 
     // 3) Llamada real para listar pages
-    const url = `${GRAPH_URL}/me/accounts?${params.toString()}`;
+    const url = `${this.graphUrl}/me/accounts?${params.toString()}`;
     const { data } = await axios.get<{
       data?: PageData[];
       paging?: unknown;

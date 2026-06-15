@@ -22,6 +22,8 @@ import { SyncAdsProcessor } from './processors/sync-ads.processor';
 import { TokenRefreshProcessor } from './processors/token-refresh.processor';
 import { TokenRefreshCronService } from './token-refresh-cron.service';
 import { WebSyncCronService } from './web-sync-cron.service';
+import { DiscoveryCleanupCronService } from './discovery-cleanup-cron.service';
+import { OAuthDiscoveriesRelationalPersistenceModule } from '../oauth/discovery/infrastructure/persistence/relational/relational-persistence.module';
 import { ReportProcessor } from './processors/report.processor';
 import { InsightProcessor } from './processors/insight.processor';
 import { ConnectionsRelationalPersistenceModule } from '../connections/infrastructure/persistence/relational/relational-persistence.module';
@@ -75,6 +77,7 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
     AnalyticsRelationalPersistenceModule,
     ReportsRelationalPersistenceModule,
     InsightsRelationalPersistenceModule,
+    OAuthDiscoveriesRelationalPersistenceModule,
     EncryptionModule,
     ChannelProvidersModule,
   ],
@@ -85,6 +88,7 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
     TokenRefreshProcessor,
     TokenRefreshCronService,
     WebSyncCronService,
+    DiscoveryCleanupCronService,
     ReportProcessor,
     InsightProcessor,
   ],

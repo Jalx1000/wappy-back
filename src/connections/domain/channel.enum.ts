@@ -1,6 +1,7 @@
 export enum ChannelEnum {
   facebook_page = 'facebook_page',
   instagram = 'instagram',
+  instagram_login = 'instagram_login',
   tiktok = 'tiktok',
   tiktok_ads = 'tiktok_ads',
   linkedin = 'linkedin',

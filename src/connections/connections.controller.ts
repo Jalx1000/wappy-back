@@ -70,6 +70,16 @@ export class ConnectionsController {
     return this.connectionsService.update(brand.id, id, dto);
   }
 
+  @Patch(':id/brand')
+  @ApiParam({ name: 'id', type: Number })
+  reassign(
+    @CurrentBrand() brand: Brand,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { brandId: number },
+  ) {
+    return this.connectionsService.reassignBrand(brand.id, id, dto.brandId);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', type: Number })

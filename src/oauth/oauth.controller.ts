@@ -18,9 +18,13 @@ import {
   ChannelOAuthService,
   OAUTH_SERVICES,
 } from './oauth-provider.interface';
-import { ConnectionsService } from '../connections/connections.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayloadType } from '../auth/strategies/types/jwt-payload.type';
+import { OAuthDiscoveriesRepository } from './discovery/infrastructure/persistence/relational/repositories/oauth-discoveries.repository';
+import { OAuthDiscovery } from './discovery/domain/oauth-discovery';
+import { EncryptionService } from '../encryption/encryption.service';
+
+const DISCOVERY_TTL_MIN = 30;
 
 @ApiTags('OAuth')
 @Controller({ path: 'connections', version: '1' })
@@ -30,8 +34,9 @@ export class OAuthController {
   constructor(
     private readonly stateService: OAuthStateService,
     @Inject(OAUTH_SERVICES) private readonly oauthServices: ChannelOAuthService[],
-    private readonly connectionsService: ConnectionsService,
     private readonly config: ConfigService,
+    private readonly discoveriesRepo: OAuthDiscoveriesRepository,
+    private readonly encryption: EncryptionService,
   ) {}
 
   @Get(':channel/authorize')
@@ -69,7 +74,10 @@ export class OAuthController {
     @Query('state') state: string,
     @Query('error') error?: string,
   ) {
-    const frontend = this.config.get<string>('FRONTEND_DOMAIN', 'http://localhost:3001');
+    const frontend = this.config.get<string>(
+      'FRONTEND_DOMAIN',
+      'http://localhost:3001',
+    );
     const portalPath = '/app/connections';
 
     if (error) {
@@ -98,18 +106,52 @@ export class OAuthController {
 
     try {
       const accounts = await svc.exchangeCode(code);
-      const connections = await Promise.all(
-        accounts.map((acc) =>
-          this.connectionsService.upsertFromOAuth(stateData.brandId, acc),
-        ),
+
+      if (!accounts.length) {
+        this.logger.warn(
+          `OAuth ${channel}: provider returned 0 accounts (state=${state.slice(0, 8)})`,
+        );
+        return {
+          url: `${frontend}${portalPath}?error=no_accounts`,
+          statusCode: 302,
+        };
+      }
+
+      const discovery = new OAuthDiscovery();
+      discovery.userId = stateData.userId;
+      discovery.channel = channel;
+      discovery.triggeredBrandId = stateData.brandId ?? null;
+      discovery.expiresAt = new Date(
+        Date.now() + DISCOVERY_TTL_MIN * 60 * 1000,
       );
-      const ids = connections.map((c) => c.id).join(',');
+      discovery.consumedAt = null;
+      discovery.accounts = accounts.map((acc) => ({
+        channel: acc.channel,
+        accountId: acc.accountId,
+        accountHandle: acc.accountHandle,
+        accessToken: this.encryption.encrypt(acc.accessToken),
+        refreshToken: acc.refreshToken
+          ? this.encryption.encrypt(acc.refreshToken)
+          : undefined,
+        expiresAt: acc.expiresAt ? acc.expiresAt.toISOString() : undefined,
+        scopes: acc.scopes,
+        metadata: acc.metadata,
+      }));
+
+      const saved = await this.discoveriesRepo.create(discovery);
+      this.logger.log(
+        `OAuth ${channel}: discovery ${saved.id} with ${accounts.length} accounts for user ${stateData.userId}`,
+      );
+
       return {
-        url: `${frontend}${portalPath}?success=true&connectionIds=${ids}`,
+        url: `${frontend}${portalPath}/assign?discoveryId=${saved.id}`,
         statusCode: 302,
       };
     } catch (err) {
-      this.logger.error(`OAuth callback failed for channel ${channel}`, err);
+      this.logger.error(
+        `OAuth callback failed for channel ${channel}`,
+        err as Error,
+      );
       return {
         url: `${frontend}${portalPath}?error=callback_failed`,
         statusCode: 302,
