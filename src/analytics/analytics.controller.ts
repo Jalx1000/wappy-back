@@ -61,15 +61,18 @@ export class AnalyticsController {
   @Get('social/summary')
   @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
   @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  @ApiQuery({ name: 'connectionId', type: Number, required: false })
   getSocialSummary(
     @CurrentBrand() brand: Brand,
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('connectionId') connectionId?: string,
   ) {
     return this.analyticsService.getSocialSummary(
       brand.id,
       new Date(from),
       new Date(to),
+      connectionId ? parseInt(connectionId, 10) : undefined,
     );
   }
 

@@ -66,13 +66,23 @@ export class AnalyticsService {
     return this.postsRepo.findTopByConnectionId(connectionId, brandId, limit);
   }
 
-  async getSocialSummary(brandId: number, from: Date, to: Date) {
-    const snapshots = await this.snapshotsRepo.findByBrandAndRange(
-      brandId,
-      from,
-      to,
-    );
-    const topPosts = await this.postsRepo.findTopByBrandId(brandId, 5);
+  async getSocialSummary(
+    brandId: number,
+    from: Date,
+    to: Date,
+    connectionId?: number,
+  ) {
+    const snapshots = connectionId
+      ? await this.snapshotsRepo.findByConnectionAndRange(
+          connectionId,
+          brandId,
+          from,
+          to,
+        )
+      : await this.snapshotsRepo.findByBrandAndRange(brandId, from, to);
+    const topPosts = connectionId
+      ? await this.postsRepo.findTopByConnectionId(connectionId, brandId, 5)
+      : await this.postsRepo.findTopByBrandId(brandId, 5);
 
     const kpis: Record<string, number> = {};
     for (const s of snapshots) {
