@@ -16,12 +16,20 @@ const SCOPES = [
   'read_insights',
   'instagram_basic',
   'instagram_manage_insights',
+  // Needed to enumerate pages owned/managed via Business Managers (agency case);
+  // /me/accounts alone only returns pages with a direct classic role.
+  'business_management',
 ];
+
+const PAGE_FIELDS =
+  'id,name,access_token,category,category_list,instagram_business_account{id,username,profile_picture_url}';
 
 interface PageData {
   id: string;
   name: string;
-  access_token: string;
+  // Absent on owned_pages/client_pages edges when the user has no direct task
+  // on the page; resolved per-page via fetchPageToken().
+  access_token?: string;
   category?: string;
   category_list?: Array<{ id: string; name: string }>;
   instagram_business_account?: {
@@ -90,6 +98,8 @@ export class MetaOAuthService implements ChannelOAuthService {
     const results: OAuthAccountResult[] = [];
 
     for (const page of pages) {
+      // fetchUserPages only returns pages with a resolved token.
+      if (!page.access_token) continue;
       // Facebook Page connection
       results.push({
         channel: ChannelEnum.facebook_page,
@@ -183,28 +193,11 @@ export class MetaOAuthService implements ChannelOAuthService {
   }
 
   private async fetchUserPages(accessToken: string): Promise<PageData[]> {
-    const fields = [
-      'id',
-      'name',
-      'access_token',
-      'category',
-      'category_list',
-      'instagram_business_account{id,username,profile_picture_url}',
-    ].join(',');
-
-    const params = new URLSearchParams({
-      access_token: accessToken,
-      fields,
-      limit: '100',
-    });
-
-    // 1) Primero verificar quién es el usuario logueado (debug útil)
+    // Debug: who is logged in + which permissions were granted.
     try {
-      const { data: meData } = await axios.get<{
-        id: string;
-        name?: string;
-        email?: string;
-      }>(`${this.graphUrl}/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name,email`);
+      const { data: meData } = await axios.get<{ id: string; name?: string }>(
+        `${this.graphUrl}/me?access_token=${encodeURIComponent(accessToken)}&fields=id,name`,
+      );
       this.logger.log(
         `Meta OAuth: authenticated user → id=${meData.id} name=${meData.name ?? 'n/a'}`,
       );
@@ -212,53 +205,150 @@ export class MetaOAuthService implements ChannelOAuthService {
       this.logger.warn(`Failed to fetch /me: ${(err as Error).message}`);
     }
 
-    // 2) Verificar qué permisos otorgó el usuario (clave para diagnosticar)
+    let grantedBusinessMgmt = false;
     try {
       const { data: permsData } = await axios.get<{
         data: Array<{ permission: string; status: string }>;
-      }>(`${this.graphUrl}/me/permissions?access_token=${encodeURIComponent(accessToken)}`);
+      }>(
+        `${this.graphUrl}/me/permissions?access_token=${encodeURIComponent(accessToken)}`,
+      );
       const granted = permsData.data
         .filter((p) => p.status === 'granted')
         .map((p) => p.permission);
-      const declined = permsData.data
-        .filter((p) => p.status === 'declined')
-        .map((p) => p.permission);
-      this.logger.log(
-        `Meta OAuth: granted=[${granted.join(',')}] declined=[${declined.join(',')}]`,
-      );
-      // Si pages_show_list no está granted, el /me/accounts SIEMPRE devolverá vacío.
+      grantedBusinessMgmt = granted.includes('business_management');
+      this.logger.log(`Meta OAuth: granted=[${granted.join(',')}]`);
       if (!granted.includes('pages_show_list')) {
         this.logger.error(
-          'Meta OAuth: user did NOT grant pages_show_list — /me/accounts will return empty. ' +
-            'Probable causa: usuario no aceptó ese permission en el consent dialog.',
+          'Meta OAuth: user did NOT grant pages_show_list — page listing will be empty.',
+        );
+      }
+      if (!grantedBusinessMgmt) {
+        this.logger.warn(
+          'Meta OAuth: business_management NOT granted — only pages with a direct ' +
+            'classic role will be found (Business-Manager pages will be missing).',
         );
       }
     } catch (err) {
-      this.logger.warn(`Failed to fetch /me/permissions: ${(err as Error).message}`);
-    }
-
-    // 3) Llamada real para listar pages
-    const url = `${this.graphUrl}/me/accounts?${params.toString()}`;
-    const { data } = await axios.get<{
-      data?: PageData[];
-      paging?: unknown;
-      error?: { message: string; type: string; code: number };
-    }>(url);
-
-    if (data.error) {
-      this.logger.error(
-        `Meta OAuth: /me/accounts returned error → ${JSON.stringify(data.error)}`,
+      this.logger.warn(
+        `Failed to fetch /me/permissions: ${(err as Error).message}`,
       );
-      throw new Error(`Meta /me/accounts failed: ${data.error.message}`);
     }
 
-    const pages = data.data ?? [];
-    this.logger.log(
-      `Meta OAuth: /me/accounts returned ${pages.length} pages → [${pages
-        .map((p) => `${p.id}:${p.name}`)
-        .join(', ')}]`,
+    // Collect pages from every source, deduping by page id. A page may surface
+    // from /me/accounts AND from a Business Manager; prefer whichever entry
+    // already carries an access_token.
+    const byId = new Map<string, PageData>();
+    const add = (pages: PageData[], source: string) => {
+      let added = 0;
+      for (const p of pages) {
+        if (!p?.id) continue;
+        const prev = byId.get(p.id);
+        if (!prev) {
+          byId.set(p.id, p);
+          added++;
+        } else if (!prev.access_token && p.access_token) {
+          byId.set(p.id, { ...prev, ...p });
+        }
+      }
+      if (added) this.logger.log(`Meta OAuth: ${source} → +${added} pages`);
+    };
+
+    // 1) Pages with a direct classic role.
+    add(
+      await this.fetchAllPages(
+        `${this.graphUrl}/me/accounts?fields=${PAGE_FIELDS}&limit=100&access_token=${encodeURIComponent(accessToken)}`,
+        '/me/accounts',
+      ),
+      '/me/accounts',
     );
 
+    // 2) Pages owned by / managed for the user's Business Managers.
+    if (grantedBusinessMgmt) {
+      const businesses = await this.fetchAllPages(
+        `${this.graphUrl}/me/businesses?fields=id,name&limit=100&access_token=${encodeURIComponent(accessToken)}`,
+        '/me/businesses',
+      );
+      for (const biz of businesses) {
+        for (const edge of ['owned_pages', 'client_pages']) {
+          add(
+            await this.fetchAllPages(
+              `${this.graphUrl}/${biz.id}/${edge}?fields=${PAGE_FIELDS}&limit=100&access_token=${encodeURIComponent(accessToken)}`,
+              `business ${biz.name ?? biz.id}/${edge}`,
+            ),
+            `business ${biz.name ?? biz.id}/${edge}`,
+          );
+        }
+      }
+    }
+
+    // 3) Some Business-Manager pages come back without an access_token on the
+    // edge. Fetch a page token per-page (works when the user has a task on it).
+    const pages: PageData[] = [];
+    for (const page of byId.values()) {
+      let resolved = page;
+      if (!resolved.access_token) {
+        const fetched = await this.fetchPageToken(page.id, accessToken);
+        if (fetched) resolved = { ...page, ...fetched };
+      }
+      if (resolved.access_token) {
+        pages.push(resolved);
+      } else {
+        this.logger.warn(
+          `Meta OAuth: page ${page.id}:${page.name} has no obtainable token — skipped`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Meta OAuth: total ${pages.length} pages → [${pages
+        .map((p) => p.name)
+        .join(', ')}]`,
+    );
     return pages;
+  }
+
+  // Follows paging.next across all result pages of an edge. Errors are logged
+  // and treated as "no more results" so one failing edge never aborts the rest.
+  private async fetchAllPages(
+    startUrl: string,
+    label: string,
+  ): Promise<PageData[]> {
+    const out: PageData[] = [];
+    let url: string | null = startUrl;
+    while (url) {
+      const {
+        data,
+      }: {
+        data: {
+          data?: PageData[];
+          paging?: { next?: string };
+          error?: { message: string; code: number };
+        };
+      } = await axios.get(url);
+      if (data.error) {
+        this.logger.warn(
+          `Meta OAuth: ${label} error → ${JSON.stringify(data.error)}`,
+        );
+        break;
+      }
+      out.push(...(data.data ?? []));
+      url = data.paging?.next ?? null;
+    }
+    return out;
+  }
+
+  private async fetchPageToken(
+    pageId: string,
+    userToken: string,
+  ): Promise<PageData | null> {
+    try {
+      const { data } = await axios.get<PageData & { error?: unknown }>(
+        `${this.graphUrl}/${pageId}?fields=${PAGE_FIELDS}&access_token=${encodeURIComponent(userToken)}`,
+      );
+      if (data.error || !data.access_token) return null;
+      return data;
+    } catch {
+      return null;
+    }
   }
 }
