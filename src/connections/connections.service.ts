@@ -26,6 +26,15 @@ const ADS_CHANNELS = new Set<ChannelEnum>([
   ChannelEnum.linkedin_ads,
 ]);
 
+const SOCIAL_CHANNELS = new Set<ChannelEnum>([
+  ChannelEnum.facebook_page,
+  ChannelEnum.instagram,
+  ChannelEnum.instagram_login,
+  ChannelEnum.tiktok,
+  ChannelEnum.linkedin,
+  ChannelEnum.youtube,
+]);
+
 const BACKFILL_DAYS = 90;
 const WEB_DIMENSIONS: WebDimensionEnum[] = [
   WebDimensionEnum.source,
@@ -149,9 +158,21 @@ export class ConnectionsService {
 
     if (isNew && connection.channel === ChannelEnum.ga4) {
       await this.enqueueWebBackfill(brandId, connection.id);
+    } else if (isNew && SOCIAL_CHANNELS.has(connection.channel)) {
+      await this.enqueueSocialBackfill(brandId, connection.id);
     }
 
     return connection;
+  }
+
+  private async enqueueSocialBackfill(brandId: number, connectionId: number) {
+    const to = new Date();
+    const from = new Date(Date.now() - BACKFILL_DAYS * 24 * 60 * 60 * 1000);
+    await this.syncSocialQueue.add(
+      'sync-connection',
+      { brandId, connectionId, dateFrom: from, dateTo: to },
+      { jobId: `social-backfill-${connectionId}-${Date.now()}` },
+    );
   }
 
   async findExpiring(before: Date): Promise<Connection[]> {

@@ -14,10 +14,11 @@ import {
 
 const GRAPH_VERSION_DEFAULT = 'v25.0';
 
+// v25 valid Page insight metrics (page_fan_count / page_impressions / page_reach
+// were removed and make the whole /insights call fail with (#100)).
 const PAGE_METRIC_MAP: Record<string, string> = {
-  page_fan_count: MetricEnum.followers,
-  page_impressions: MetricEnum.impressions,
-  page_reach: MetricEnum.reach,
+  page_impressions_unique: MetricEnum.reach,
+  page_views_total: MetricEnum.impressions,
   page_post_engagements: MetricEnum.engagement,
 };
 
@@ -74,7 +75,9 @@ export class MetaFacebookPageProvider implements ChannelProvider {
       `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
-      throw new Error(`Meta page insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
+      throw new Error(
+        `Meta page insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
+      );
     }
 
     const rows: MetricRow[] = [];
@@ -91,6 +94,25 @@ export class MetaFacebookPageProvider implements ChannelProvider {
         });
       }
     }
+
+    // Followers is a Page field (fan_count), not an insights metric in v25.
+    try {
+      const { data: page } = await axios.get<{ fan_count?: number }>(
+        `${this.graphUrl}/${connection.accountId}?fields=fan_count&access_token=${encodeURIComponent(connection.accessToken)}`,
+      );
+      if (typeof page.fan_count === 'number') {
+        rows.push({
+          connectionId: connection.id,
+          brandId: connection.brandId,
+          date: dateRange.to,
+          metric: MetricEnum.followers,
+          value: page.fan_count,
+        });
+      }
+    } catch {
+      // non-fatal: followers is supplementary
+    }
+
     return rows;
   }
 
@@ -103,7 +125,8 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
     const params = new URLSearchParams({
-      fields: 'id,message,created_time,likes.summary(true),comments.summary(true),shares',
+      fields:
+        'id,message,created_time,likes.summary(true),comments.summary(true),shares',
       since: String(since),
       until: String(until),
       access_token: connection.accessToken,
@@ -113,7 +136,9 @@ export class MetaFacebookPageProvider implements ChannelProvider {
       `${this.graphUrl}/${connection.accountId}/posts?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
-      throw new Error(`Meta page posts: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
+      throw new Error(
+        `Meta page posts: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
+      );
     }
 
     return (data.data ?? []).map((post) => ({

@@ -14,20 +14,17 @@ import {
 
 const GRAPH_VERSION_DEFAULT = 'v25.0';
 
+// v25: IG `impressions` was removed in favour of `views`; account-level
+// insights now require metric_type=total_value.
 const IG_METRIC_MAP: Record<string, string> = {
   reach: MetricEnum.reach,
-  impressions: MetricEnum.impressions,
+  views: MetricEnum.impressions,
   accounts_engaged: MetricEnum.engagement,
 };
 
-interface IgInsightValue {
-  value: number;
-  end_time: string;
-}
-
 interface IgInsightMetric {
   name: string;
-  values: IgInsightValue[];
+  total_value?: { value: number };
 }
 
 interface IgMediaItem {
@@ -62,8 +59,9 @@ export class MetaInstagramProvider implements ChannelProvider {
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
     const params = new URLSearchParams({
-      metric: 'reach,impressions,accounts_engaged',
+      metric: 'reach,views,accounts_engaged',
       period: 'day',
+      metric_type: 'total_value',
       since: String(since),
       until: String(until),
       access_token: connection.accessToken,
@@ -73,22 +71,24 @@ export class MetaInstagramProvider implements ChannelProvider {
       `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
-      throw new Error(`IG insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
+      throw new Error(
+        `IG insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
+      );
     }
 
+    // total_value returns one aggregate per metric for the window; store it
+    // dated at the window end.
     const rows: MetricRow[] = [];
     for (const metricData of data.data ?? []) {
       const metricName = IG_METRIC_MAP[metricData.name];
-      if (!metricName) continue;
-      for (const point of metricData.values ?? []) {
-        rows.push({
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date: new Date(point.end_time),
-          metric: metricName,
-          value: point.value,
-        });
-      }
+      if (!metricName || metricData.total_value?.value === undefined) continue;
+      rows.push({
+        connectionId: connection.id,
+        brandId: connection.brandId,
+        date: dateRange.to,
+        metric: metricName,
+        value: metricData.total_value.value,
+      });
     }
 
     const profileParams = new URLSearchParams({
@@ -98,12 +98,11 @@ export class MetaInstagramProvider implements ChannelProvider {
     const { data: profile } = await axios.get<{ followers_count?: number }>(
       `${this.graphUrl}/${connection.accountId}?${profileParams.toString()}`,
     );
-    if (profile.followers_count !== undefined && rows.length > 0) {
-      const latestDate = rows.reduce((d, r) => (r.date > d ? r.date : d), rows[0].date);
+    if (profile.followers_count !== undefined) {
       rows.push({
         connectionId: connection.id,
         brandId: connection.brandId,
-        date: latestDate,
+        date: dateRange.to,
         metric: MetricEnum.followers,
         value: profile.followers_count,
       });
@@ -131,7 +130,9 @@ export class MetaInstagramProvider implements ChannelProvider {
       `${this.graphUrl}/${connection.accountId}/media?${params.toString()}`,
     );
     if ((data as Record<string, unknown>)['error']) {
-      throw new Error(`IG media: ${JSON.stringify((data as Record<string, unknown>)['error'])}`);
+      throw new Error(
+        `IG media: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
+      );
     }
 
     return (data.data ?? []).map((post) => ({
