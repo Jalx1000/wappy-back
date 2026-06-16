@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
 import { google } from 'googleapis';
+import { GoogleAuth, OAuth2Client } from 'google-auth-library';
 import { ChannelEnum } from '../../../connections/domain/channel.enum';
 import { Connection } from '../../../connections/domain/connection';
 import { MetricEnum } from '../../../metrics/domain/metric.enum';
@@ -189,14 +190,19 @@ export class Ga4Provider implements ChannelProvider {
   }
 
   private buildClient(connection: Connection): BetaAnalyticsDataClient {
-    const auth = new google.auth.OAuth2(
+    // @google-analytics/data (google-gax v5) calls `auth.getUniverseDomain()`,
+    // which a bare OAuth2Client does not implement. Wrapping the OAuth2 client
+    // in GoogleAuth provides that method while delegating requests to the
+    // user's credentials (GoogleAuth.getClient() returns this authClient).
+    const oauth = new OAuth2Client(
       this.config.getOrThrow<string>('GA4_CLIENT_ID'),
       this.config.getOrThrow<string>('GA4_CLIENT_SECRET'),
     );
-    auth.setCredentials({
+    oauth.setCredentials({
       access_token: connection.accessToken,
       refresh_token: connection.refreshToken ?? undefined,
     });
+    const auth = new GoogleAuth({ authClient: oauth });
     return new BetaAnalyticsDataClient({
       auth: auth as unknown as never,
     });
