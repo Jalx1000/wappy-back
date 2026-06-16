@@ -110,32 +110,56 @@ export class AnalyticsController {
   @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
   @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
   @ApiQuery({ name: 'city', type: String, required: false })
+  @ApiQuery({ name: 'connectionId', type: Number, required: false })
   getWebOverview(
     @CurrentBrand() brand: Brand,
     @Query('from') from: string,
     @Query('to') to: string,
     @Query('city') city?: string,
+    @Query('connectionId') connectionId?: string,
   ) {
     return this.analyticsService.getWebOverview(
       brand.id,
       new Date(from),
       new Date(to),
       city,
+      connectionId ? parseInt(connectionId, 10) : undefined,
     );
   }
 
   @Get('web/cities')
   @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
   @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  @ApiQuery({ name: 'connectionId', type: Number, required: false })
   getWebCities(
     @CurrentBrand() brand: Brand,
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('connectionId') connectionId?: string,
   ) {
     return this.analyticsService.listWebCities(
       brand.id,
       new Date(from),
       new Date(to),
+      connectionId ? parseInt(connectionId, 10) : undefined,
+    );
+  }
+
+  @Get('web/countries')
+  @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
+  @ApiQuery({ name: 'connectionId', type: Number, required: false })
+  getWebCountries(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('connectionId') connectionId?: string,
+  ) {
+    return this.analyticsService.getWebCountries(
+      brand.id,
+      new Date(from),
+      new Date(to),
+      connectionId ? parseInt(connectionId, 10) : undefined,
     );
   }
 }

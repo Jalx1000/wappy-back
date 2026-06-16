@@ -372,11 +372,12 @@ export class AnalyticsService {
     from: Date,
     to: Date,
     cityFilter?: string,
+    selectedConnectionId?: number,
   ) {
-    const connection = await this.findActiveGa4Connection(brandId);
-    if (!connection) {
-      throw new NotFoundException('No GA4 connection for brand');
-    }
+    const connection = await this.resolveGa4Connection(
+      brandId,
+      selectedConnectionId,
+    );
     const connectionId = connection.id;
 
     const rangeMs = to.getTime() - from.getTime();
@@ -475,19 +476,66 @@ export class AnalyticsService {
     brandId: number,
     from: Date,
     to: Date,
+    connectionId?: number,
   ): Promise<string[]> {
-    const connection = await this.findActiveGa4Connection(brandId);
-    if (!connection) return [];
-    return this.webDimRepo.listCities(brandId, connection.id, from, to);
+    try {
+      const connection = await this.resolveGa4Connection(brandId, connectionId);
+      return this.webDimRepo.listCities(brandId, connection.id, from, to);
+    } catch {
+      return [];
+    }
   }
 
-  private async findActiveGa4Connection(brandId: number) {
-    const conns = await this.connectionsRepo.findByBrandId(brandId);
-    return conns.find(
-      (c) =>
-        c.channel === ChannelEnum.ga4 &&
-        c.status === ConnectionStatusEnum.connected,
+  async getWebCountries(
+    brandId: number,
+    from: Date,
+    to: Date,
+    connectionId?: number,
+  ) {
+    const connection = await this.resolveGa4Connection(brandId, connectionId);
+    const rows = await this.webDimRepo.topByDimension(
+      brandId,
+      connection.id,
+      WebDimensionEnum.country,
+      from,
+      to,
+      300,
     );
+    return rows.map((r) => ({
+      country: r.dimensionValue,
+      sessions: r.sessions,
+      users: r.users,
+      conversions: r.conversions,
+    }));
+  }
+
+  // Resolve which GA4 property/connection to read. With an explicit id we
+  // validate it belongs to the brand; otherwise default to the most recently
+  // synced connected GA4 so the default never lands on an empty property.
+  private async resolveGa4Connection(brandId: number, connectionId?: number) {
+    if (connectionId) {
+      const conn = await this.connectionsRepo.findById(connectionId);
+      if (!conn || conn.brandId !== brandId || conn.channel !== ChannelEnum.ga4) {
+        throw new NotFoundException('GA4 connection not found for brand');
+      }
+      return conn;
+    }
+    const conns = await this.connectionsRepo.findByBrandId(brandId);
+    const ga4 = conns
+      .filter(
+        (c) =>
+          c.channel === ChannelEnum.ga4 &&
+          c.status === ConnectionStatusEnum.connected,
+      )
+      .sort(
+        (a, b) =>
+          (b.lastSyncAt ? new Date(b.lastSyncAt).getTime() : 0) -
+          (a.lastSyncAt ? new Date(a.lastSyncAt).getTime() : 0),
+      );
+    if (!ga4.length) {
+      throw new NotFoundException('No GA4 connection for brand');
+    }
+    return ga4[0];
   }
 
   private buildWebKpis(current: MetricSnapshot[], previous: MetricSnapshot[]) {
