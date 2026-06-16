@@ -183,7 +183,8 @@ export class AnalyticsService {
       to: to.toISOString().slice(0, 10),
       kpis,
       platforms,
-      spendTrend,
+      spendTrend: spendTrend.values,
+      spendTrendLabels: spendTrend.labels,
       stale,
       lastSyncAt,
     };
@@ -293,7 +294,7 @@ export class AnalyticsService {
     snapshots: AdMetricSnapshot[],
     from: Date,
     to: Date,
-  ): number[] {
+  ): { values: number[]; labels: string[] } {
     const days: string[] = [];
     const cursor = new Date(from);
     while (cursor <= to) {
@@ -305,7 +306,10 @@ export class AnalyticsService {
       const k = new Date(s.date).toISOString().slice(0, 10);
       byDay.set(k, (byDay.get(k) ?? 0) + Number(s.spend ?? 0));
     }
-    return days.map((d) => Math.round(byDay.get(d) ?? 0));
+    return {
+      values: days.map((d) => Math.round(byDay.get(d) ?? 0)),
+      labels: days.map((d) => d.slice(5)),
+    };
   }
 
   private dailyValues(
@@ -446,10 +450,10 @@ export class AnalyticsService {
     const pages = pagesAgg.map((a) => ({
       path: a.dimensionValue,
       views: a.sessions,
-      time: '—',
     }));
 
-    const funnel = this.buildWebFunnel(kpis);
+    const webAgg = this.aggregateWeb(current);
+    const funnel = this.buildWebFunnel(kpis, webAgg.engagementRate);
 
     const lastSyncAt = connection.lastSyncAt ?? null;
     const stale = lastSyncAt
@@ -621,12 +625,15 @@ export class AnalyticsService {
     return { current: curValues, previous: prevValues, labels };
   }
 
-  private buildWebFunnel(kpis: Array<{ label: string; value: number }>) {
+  private buildWebFunnel(
+    kpis: Array<{ label: string; value: number }>,
+    engagementRate: number,
+  ) {
     const sessions = kpis.find((k) => k.label === 'Sesiones')?.value ?? 0;
     const convRate =
       kpis.find((k) => k.label === 'Tasa de conversión')?.value ?? 0;
     const conversions = Math.round((sessions * convRate) / 100);
-    const engaged = Math.round(sessions * 0.45);
+    const engaged = Math.round((sessions * engagementRate) / 100);
 
     return [
       { label: 'Visita', count: sessions, pct: 100 },
