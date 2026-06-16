@@ -20,7 +20,16 @@ const IG_METRIC_MAP: Record<string, string> = {
   reach: MetricEnum.reach,
   views: MetricEnum.impressions,
   accounts_engaged: MetricEnum.engagement,
+  total_interactions: MetricEnum.total_interactions,
+  likes: MetricEnum.likes,
+  comments: MetricEnum.comments,
+  shares: MetricEnum.shares,
+  saves: MetricEnum.saves,
+  profile_views: MetricEnum.profile_views,
+  website_clicks: MetricEnum.website_clicks,
 };
+
+const IG_ACCOUNT_METRICS = Object.keys(IG_METRIC_MAP).join(',');
 
 interface IgInsightMetric {
   name: string;
@@ -34,6 +43,9 @@ interface IgMediaItem {
   timestamp: string;
   like_count?: number;
   comments_count?: number;
+  insights?: {
+    data: Array<{ name: string; values: Array<{ value: number }> }>;
+  };
 }
 
 @Injectable()
@@ -58,8 +70,41 @@ export class MetaInstagramProvider implements ChannelProvider {
     const since = Math.floor(dateRange.from.getTime() / 1000);
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
+    const rows: MetricRow[] = [];
+
+    // Daily reach (period=day, no metric_type) → real daily series for charts.
+    try {
+      const dailyParams = new URLSearchParams({
+        metric: 'reach',
+        period: 'day',
+        since: String(since),
+        until: String(until),
+        access_token: connection.accessToken,
+      });
+      const { data: daily } = await axios.get<{
+        data: Array<{
+          name: string;
+          values: { value: number; end_time: string }[];
+        }>;
+      }>(
+        `${this.graphUrl}/${connection.accountId}/insights?${dailyParams.toString()}`,
+      );
+      for (const point of daily.data?.[0]?.values ?? []) {
+        rows.push({
+          connectionId: connection.id,
+          brandId: connection.brandId,
+          date: new Date(point.end_time),
+          metric: MetricEnum.reach,
+          value: point.value,
+        });
+      }
+    } catch {
+      // non-fatal: aggregates below still cover the KPIs
+    }
+
+    // Aggregate metrics for the window (total_value), dated at window end.
     const params = new URLSearchParams({
-      metric: 'reach,views,accounts_engaged',
+      metric: IG_ACCOUNT_METRICS,
       period: 'day',
       metric_type: 'total_value',
       since: String(since),
@@ -76,12 +121,11 @@ export class MetaInstagramProvider implements ChannelProvider {
       );
     }
 
-    // total_value returns one aggregate per metric for the window; store it
-    // dated at the window end.
-    const rows: MetricRow[] = [];
     for (const metricData of data.data ?? []) {
       const metricName = IG_METRIC_MAP[metricData.name];
       if (!metricName || metricData.total_value?.value === undefined) continue;
+      // reach already stored as a daily series above.
+      if (metricName === MetricEnum.reach) continue;
       rows.push({
         connectionId: connection.id,
         brandId: connection.brandId,
@@ -120,9 +164,12 @@ export class MetaInstagramProvider implements ChannelProvider {
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
     const params = new URLSearchParams({
-      fields: 'id,caption,media_type,timestamp,like_count,comments_count',
+      fields:
+        'id,caption,media_type,timestamp,like_count,comments_count,' +
+        'insights.metric(reach,total_interactions,saved,views)',
       since: String(since),
       until: String(until),
+      limit: '50',
       access_token: connection.accessToken,
     });
 
@@ -135,19 +182,32 @@ export class MetaInstagramProvider implements ChannelProvider {
       );
     }
 
-    return (data.data ?? []).map((post) => ({
-      brandId: connection.brandId,
-      connectionId: connection.id,
-      externalId: post.id,
-      publishedAt: new Date(post.timestamp),
-      type: (post.media_type ?? 'IMAGE').toLowerCase(),
-      caption: post.caption ?? null,
-      mediaUrl: null,
-      metrics: {
-        likes: post.like_count ?? 0,
-        comments: post.comments_count ?? 0,
-      },
-    }));
+    return (data.data ?? []).map((post) => {
+      const ins: Record<string, number> = {};
+      for (const m of post.insights?.data ?? []) {
+        const v = m.values?.[0]?.value;
+        if (typeof v === 'number') ins[m.name] = v;
+      }
+      const likes = post.like_count ?? 0;
+      const comments = post.comments_count ?? 0;
+      return {
+        brandId: connection.brandId,
+        connectionId: connection.id,
+        externalId: post.id,
+        publishedAt: new Date(post.timestamp),
+        type: (post.media_type ?? 'IMAGE').toLowerCase(),
+        caption: post.caption ?? null,
+        mediaUrl: null,
+        metrics: {
+          reach: ins.reach ?? 0,
+          likes,
+          comments,
+          saves: ins.saved ?? 0,
+          video_views: ins.views ?? 0,
+          engagement: ins.total_interactions ?? likes + comments,
+        },
+      };
+    });
   }
 
   async refreshToken(connection: Connection): Promise<TokenData> {

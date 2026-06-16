@@ -185,7 +185,7 @@ export class ConnectionsService {
   ): Promise<{ jobIds: (string | undefined)[] }> {
     const connection = await this.findOne(brandId, id);
     const to = new Date();
-    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const from = new Date(Date.now() - BACKFILL_DAYS * 24 * 60 * 60 * 1000);
 
     if (connection.channel === ChannelEnum.ga4) {
       return this.enqueueWebRange(brandId, id, from, to);

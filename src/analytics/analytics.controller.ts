@@ -5,12 +5,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiQuery,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
 import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
@@ -79,18 +74,15 @@ export class AnalyticsController {
   @Get('ads/overview')
   @ApiQuery({ name: 'from', type: String, example: '2025-01-01' })
   @ApiQuery({ name: 'to', type: String, example: '2025-03-31' })
-  @ApiQuery({ name: 'compare', type: Boolean, required: false })
   getAdsOverview(
     @CurrentBrand() brand: Brand,
     @Query('from') from: string,
     @Query('to') to: string,
-    @Query('compare') compare?: string,
   ) {
     return this.analyticsService.getAdsOverview(
       brand.id,
       new Date(from),
       new Date(to),
-      compare === 'true',
     );
   }
 

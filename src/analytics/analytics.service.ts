@@ -121,12 +121,7 @@ export class AnalyticsService {
     return series;
   }
 
-  async getAdsOverview(
-    brandId: number,
-    from: Date,
-    to: Date,
-    _compare?: boolean,
-  ) {
+  async getAdsOverview(brandId: number, from: Date, to: Date) {
     const snapshots = await this.adMetricsRepo.findByBrandAndDateRange(
       brandId,
       from,
@@ -216,9 +211,7 @@ export class AnalyticsService {
         );
         const agg = this.aggregateAdMetrics(metrics);
         const conn = connById.get(campaign.connectionId);
-        const platform = conn
-          ? this.channelToUiKey(conn.channel)
-          : 'googleads';
+        const platform = conn ? this.channelToUiKey(conn.channel) : 'googleads';
         return {
           name: campaign.name,
           platform,
@@ -262,9 +255,11 @@ export class AnalyticsService {
     let maxSpend = 0;
 
     for (const c of adsConns) {
-      const campaigns =
-        await this.adCampaignsRepo.findByBrandAndConnection(brandId, c.id);
-      let agg = { spend: 0, conversions: 0, impressions: 0, clicks: 0 };
+      const campaigns = await this.adCampaignsRepo.findByBrandAndConnection(
+        brandId,
+        c.id,
+      );
+      const agg = { spend: 0, conversions: 0, impressions: 0, clicks: 0 };
       for (const campaign of campaigns) {
         const snaps = await this.adMetricsRepo.findByCampaignAndDateRange(
           campaign.id,
@@ -294,9 +289,10 @@ export class AnalyticsService {
 
     return platforms.map((p) => ({
       ...p,
-      pct: maxSpend > 0
-        ? Math.round((this.parseMoney(p.spend) / maxSpend) * 100)
-        : 0,
+      pct:
+        maxSpend > 0
+          ? Math.round((this.parseMoney(p.spend) / maxSpend) * 100)
+          : 0,
     }));
   }
 
@@ -444,10 +440,8 @@ export class AnalyticsService {
       ),
     ]);
 
-    const totalDeviceSessions = devicesAgg.reduce(
-      (a, d) => a + d.sessions,
-      0,
-    ) || 1;
+    const totalDeviceSessions =
+      devicesAgg.reduce((a, d) => a + d.sessions, 0) || 1;
 
     const sources = sourcesAgg.map((a) => ({
       name: a.dimensionValue,
@@ -529,7 +523,11 @@ export class AnalyticsService {
   private async resolveGa4Connection(brandId: number, connectionId?: number) {
     if (connectionId) {
       const conn = await this.connectionsRepo.findById(connectionId);
-      if (!conn || conn.brandId !== brandId || conn.channel !== ChannelEnum.ga4) {
+      if (
+        !conn ||
+        conn.brandId !== brandId ||
+        conn.channel !== ChannelEnum.ga4
+      ) {
         throw new NotFoundException('GA4 connection not found for brand');
       }
       return conn;
@@ -566,7 +564,8 @@ export class AnalyticsService {
     const pagesPerSession = cur.sessions > 0 ? cur.pageViews / cur.sessions : 0;
     const prevPagesPerSession =
       prev.sessions > 0 ? prev.pageViews / prev.sessions : 0;
-    const convRate = cur.sessions > 0 ? (cur.conversions / cur.sessions) * 100 : 0;
+    const convRate =
+      cur.sessions > 0 ? (cur.conversions / cur.sessions) * 100 : 0;
     const prevConvRate =
       prev.sessions > 0 ? (prev.conversions / prev.sessions) * 100 : 0;
 
@@ -748,8 +747,7 @@ export class AnalyticsService {
       result[metric] = {
         current: cur,
         previous: prev,
-        change:
-          prev > 0 ? Math.round(((cur - prev) / prev) * 10000) / 100 : 0,
+        change: prev > 0 ? Math.round(((cur - prev) / prev) * 10000) / 100 : 0,
       };
     }
     return result;
@@ -774,8 +772,7 @@ export class AnalyticsService {
       result[metric] = {
         current: cur,
         previous: prev,
-        change:
-          prev > 0 ? Math.round(((cur - prev) / prev) * 10000) / 100 : 0,
+        change: prev > 0 ? Math.round(((cur - prev) / prev) * 10000) / 100 : 0,
       };
     }
     return result;

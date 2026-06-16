@@ -20,6 +20,7 @@ const PAGE_METRIC_MAP: Record<string, string> = {
   page_impressions_unique: MetricEnum.reach,
   page_views_total: MetricEnum.impressions,
   page_post_engagements: MetricEnum.engagement,
+  page_daily_follows: MetricEnum.new_follows,
 };
 
 interface PageInsightValue {
@@ -39,6 +40,9 @@ interface PagePost {
   likes?: { summary: { total_count: number } };
   comments?: { summary: { total_count: number } };
   shares?: { count: number };
+  insights?: {
+    data: Array<{ name: string; values: Array<{ value: unknown }> }>;
+  };
 }
 
 @Injectable()
@@ -124,11 +128,16 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     const since = Math.floor(dateRange.from.getTime() / 1000);
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
+    // Post-level insights fetched inline (one call) via nested field expansion.
+    const insightMetrics =
+      'post_impressions_unique,post_clicks,post_video_views,post_reactions_like_total';
     const params = new URLSearchParams({
       fields:
-        'id,message,created_time,likes.summary(true),comments.summary(true),shares',
+        `id,message,created_time,likes.summary(true),comments.summary(true),shares,` +
+        `insights.metric(${insightMetrics})`,
       since: String(since),
       until: String(until),
+      limit: '50',
       access_token: connection.accessToken,
     });
 
@@ -141,20 +150,35 @@ export class MetaFacebookPageProvider implements ChannelProvider {
       );
     }
 
-    return (data.data ?? []).map((post) => ({
-      brandId: connection.brandId,
-      connectionId: connection.id,
-      externalId: post.id,
-      publishedAt: new Date(post.created_time),
-      type: 'post',
-      caption: post.message ?? null,
-      mediaUrl: null,
-      metrics: {
-        likes: post.likes?.summary?.total_count ?? 0,
-        comments: post.comments?.summary?.total_count ?? 0,
-        shares: post.shares?.count ?? 0,
-      },
-    }));
+    return (data.data ?? []).map((post) => {
+      const ins: Record<string, number> = {};
+      for (const m of post.insights?.data ?? []) {
+        const v = m.values?.[0]?.value;
+        if (typeof v === 'number') ins[m.name] = v;
+      }
+      const likes = post.likes?.summary?.total_count ?? 0;
+      const comments = post.comments?.summary?.total_count ?? 0;
+      const shares = post.shares?.count ?? 0;
+      const reach = ins.post_impressions_unique ?? 0;
+      return {
+        brandId: connection.brandId,
+        connectionId: connection.id,
+        externalId: post.id,
+        publishedAt: new Date(post.created_time),
+        type: 'post',
+        caption: post.message ?? null,
+        mediaUrl: null,
+        metrics: {
+          reach,
+          likes,
+          comments,
+          shares,
+          clicks: ins.post_clicks ?? 0,
+          video_views: ins.post_video_views ?? 0,
+          engagement: likes + comments + shares,
+        },
+      };
+    });
   }
 
   async refreshToken(connection: Connection): Promise<TokenData> {
