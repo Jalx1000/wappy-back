@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
 import { google } from 'googleapis';
@@ -37,7 +37,6 @@ const DIMENSION_TO_GA4: Record<WebDimensionEnum, string> = {
 @Injectable()
 export class Ga4Provider implements ChannelProvider {
   readonly channel = ChannelEnum.ga4;
-  private readonly logger = new Logger(Ga4Provider.name);
 
   constructor(private readonly config: ConfigService) {}
 

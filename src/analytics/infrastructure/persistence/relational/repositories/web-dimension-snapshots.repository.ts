@@ -30,7 +30,7 @@ export class WebDimensionSnapshotsRepository {
       .into(WebDimensionSnapshotEntity)
       .values(entities as never)
       .orUpdate(
-        ['sessions', 'users', 'conversions', 'updatedAt'],
+        ['sessions', 'users', 'conversions', 'updated_at'],
         ['connection_id', 'date', 'dimension', 'dimension_value'],
       )
       .execute();

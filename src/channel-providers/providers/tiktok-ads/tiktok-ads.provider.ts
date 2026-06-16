@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import { ChannelEnum } from '../../../connections/domain/channel.enum';
 import { Connection } from '../../../connections/domain/connection';
@@ -20,7 +19,7 @@ const API_BASE = 'https://business-api.tiktok.com/open_api/v1.3';
 interface TtCampaign {
   campaign_id: string;
   campaign_name: string;
-  status: string;
+  operation_status?: string;
   objective_type?: string;
   budget?: number;
 }
@@ -41,9 +40,6 @@ interface TtReportRow {
 @Injectable()
 export class TiktokAdsProvider implements ChannelProvider {
   readonly channel = ChannelEnum.tiktok_ads;
-  private readonly logger = new Logger(TiktokAdsProvider.name);
-
-  constructor(private readonly config: ConfigService) {}
 
   async fetchMetrics(
     connection: Connection,
@@ -101,7 +97,7 @@ export class TiktokAdsProvider implements ChannelProvider {
       ad.connectionId = connection.id;
       ad.externalId = c.campaign_id;
       ad.name = c.campaign_name;
-      ad.status = this.normalizeStatus(c.status);
+      ad.status = this.normalizeStatus(c.operation_status ?? '');
       ad.objective = c.objective_type ?? 'UNSPECIFIED';
       ad.budget = c.budget;
       ad.currency = 'USD';
@@ -160,7 +156,7 @@ export class TiktokAdsProvider implements ChannelProvider {
       fields: JSON.stringify([
         'campaign_id',
         'campaign_name',
-        'status',
+        'operation_status',
         'objective_type',
         'budget',
       ]),
@@ -171,8 +167,9 @@ export class TiktokAdsProvider implements ChannelProvider {
       data?: { list?: TtCampaign[] };
     }>(url, { params, headers });
     if (data.code !== 0) {
-      this.logger.warn(`TikTok campaigns failed: ${data.message}`);
-      return [];
+      throw new Error(
+        `TikTok campaign/get failed (code ${data.code}): ${data.message}`,
+      );
     }
     return data.data?.list ?? [];
   }
@@ -209,8 +206,9 @@ export class TiktokAdsProvider implements ChannelProvider {
       data?: { list?: TtReportRow[] };
     }>(url, { params, headers });
     if (data.code !== 0) {
-      this.logger.warn(`TikTok report failed: ${data.message}`);
-      return [];
+      throw new Error(
+        `TikTok report failed (code ${data.code}): ${data.message}`,
+      );
     }
     return data.data?.list ?? [];
   }
