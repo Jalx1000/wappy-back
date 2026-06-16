@@ -83,12 +83,19 @@ export class TiktokAdsProvider implements ChannelProvider {
     dateRange: DateRange,
   ): Promise<AdsFetchResult> {
     const advertiserId = connection.accountId;
-    const from = this.toIsoDate(dateRange.from);
-    const to = this.toIsoDate(dateRange.to);
     const headers = { 'Access-Token': connection.accessToken };
 
     const campaigns = await this.listCampaigns(advertiserId, headers);
-    const report = await this.fetchReport(advertiserId, from, to, headers);
+    // TikTok's report API caps stat_time_day ranges at 30 days, so split
+    // longer ranges into <=30-day windows and concatenate the rows.
+    const report: TtReportRow[] = [];
+    for (const [wFrom, wTo] of this.splitRange(
+      dateRange.from,
+      dateRange.to,
+      30,
+    )) {
+      report.push(...(await this.fetchReport(advertiserId, wFrom, wTo, headers)));
+    }
 
     const campaignMap = new Map<string, AdCampaign>();
     for (const c of campaigns) {
@@ -224,5 +231,23 @@ export class TiktokAdsProvider implements ChannelProvider {
 
   private toIsoDate(d: Date): string {
     return d.toISOString().split('T')[0];
+  }
+
+  private splitRange(
+    from: Date,
+    to: Date,
+    maxDays: number,
+  ): Array<[string, string]> {
+    const windows: Array<[string, string]> = [];
+    const cursor = new Date(from);
+    while (cursor <= to) {
+      const end = new Date(cursor);
+      end.setUTCDate(end.getUTCDate() + maxDays - 1);
+      const windowEnd = end < to ? end : to;
+      windows.push([this.toIsoDate(cursor), this.toIsoDate(windowEnd)]);
+      cursor.setTime(windowEnd.getTime());
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    return windows;
   }
 }
