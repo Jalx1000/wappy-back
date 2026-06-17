@@ -11,6 +11,7 @@ import {
   PostData,
   TokenData,
 } from '../../channel-provider.interface';
+import { splitWindows } from './date-windows';
 
 const GRAPH_VERSION_DEFAULT = 'v25.0';
 
@@ -40,6 +41,9 @@ interface IgMediaItem {
   id: string;
   caption?: string;
   media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  permalink?: string;
   timestamp: string;
   like_count?: number;
   comments_count?: number;
@@ -67,72 +71,65 @@ export class MetaInstagramProvider implements ChannelProvider {
     dateRange: DateRange,
   ): Promise<MetricRow[]> {
     this.ensureConfigured();
-    const since = Math.floor(dateRange.from.getTime() / 1000);
-    const until = Math.floor(dateRange.to.getTime() / 1000);
-
     const rows: MetricRow[] = [];
 
-    // Daily reach (period=day, no metric_type) → real daily series for charts.
-    try {
-      const dailyParams = new URLSearchParams({
-        metric: 'reach',
-        period: 'day',
-        since: String(since),
-        until: String(until),
-        access_token: connection.accessToken,
-      });
-      const { data: daily } = await axios.get<{
-        data: Array<{
-          name: string;
-          values: { value: number; end_time: string }[];
-        }>;
-      }>(
-        `${this.graphUrl}/${connection.accountId}/insights?${dailyParams.toString()}`,
+    // Meta caps /insights at 30 days, so request in <=30-day windows.
+    for (const [since, until] of splitWindows(
+      dateRange.from,
+      dateRange.to,
+      30,
+    )) {
+      // Daily reach (period=day) → real daily series for charts.
+      try {
+        const dailyParams = new URLSearchParams({
+          metric: 'reach',
+          period: 'day',
+          since: String(since),
+          until: String(until),
+          access_token: connection.accessToken,
+        });
+        const { data: daily } = await axios.get<{
+          data: Array<{
+            name: string;
+            values: { value: number; end_time: string }[];
+          }>;
+        }>(
+          `${this.graphUrl}/${connection.accountId}/insights?${dailyParams.toString()}`,
+        );
+        for (const point of daily.data?.[0]?.values ?? []) {
+          rows.push({
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date: new Date(point.end_time),
+            metric: MetricEnum.reach,
+            value: point.value,
+          });
+        }
+      } catch {
+        // non-fatal: aggregates below still cover the KPIs
+      }
+
+      // Aggregate metrics (total_value). Some accounts don't support every
+      // metric, so degrade to a core set instead of failing the connection.
+      const aggData = await this.fetchAccountAggregates(
+        connection,
+        since,
+        until,
       );
-      for (const point of daily.data?.[0]?.values ?? []) {
+      for (const metricData of aggData) {
+        const metricName = IG_METRIC_MAP[metricData.name];
+        if (!metricName || metricData.total_value?.value === undefined)
+          continue;
+        // reach already stored as a daily series above.
+        if (metricName === MetricEnum.reach) continue;
         rows.push({
           connectionId: connection.id,
           brandId: connection.brandId,
-          date: new Date(point.end_time),
-          metric: MetricEnum.reach,
-          value: point.value,
+          date: new Date(until * 1000),
+          metric: metricName,
+          value: metricData.total_value.value,
         });
       }
-    } catch {
-      // non-fatal: aggregates below still cover the KPIs
-    }
-
-    // Aggregate metrics for the window (total_value), dated at window end.
-    const params = new URLSearchParams({
-      metric: IG_ACCOUNT_METRICS,
-      period: 'day',
-      metric_type: 'total_value',
-      since: String(since),
-      until: String(until),
-      access_token: connection.accessToken,
-    });
-
-    const { data } = await axios.get<{ data: IgInsightMetric[] }>(
-      `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
-    );
-    if ((data as Record<string, unknown>)['error']) {
-      throw new Error(
-        `IG insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
-      );
-    }
-
-    for (const metricData of data.data ?? []) {
-      const metricName = IG_METRIC_MAP[metricData.name];
-      if (!metricName || metricData.total_value?.value === undefined) continue;
-      // reach already stored as a daily series above.
-      if (metricName === MetricEnum.reach) continue;
-      rows.push({
-        connectionId: connection.id,
-        brandId: connection.brandId,
-        date: dateRange.to,
-        metric: metricName,
-        value: metricData.total_value.value,
-      });
     }
 
     const profileParams = new URLSearchParams({
@@ -163,23 +160,36 @@ export class MetaInstagramProvider implements ChannelProvider {
     const since = Math.floor(dateRange.from.getTime() / 1000);
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
-    const params = new URLSearchParams({
-      fields:
-        'id,caption,media_type,timestamp,like_count,comments_count,' +
-        'insights.metric(reach,total_interactions,saved,views)',
-      since: String(since),
-      until: String(until),
-      limit: '50',
-      access_token: connection.accessToken,
-    });
-
-    const { data } = await axios.get<{ data: IgMediaItem[] }>(
-      `${this.graphUrl}/${connection.accountId}/media?${params.toString()}`,
-    );
-    if ((data as Record<string, unknown>)['error']) {
-      throw new Error(
-        `IG media: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
-      );
+    // Try with per-media insights; if they fail, fall back to basic fields.
+    const baseFields =
+      'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,' +
+      'like_count,comments_count';
+    let data: { data?: IgMediaItem[]; error?: unknown } | null = null;
+    for (const fields of [
+      `${baseFields},insights.metric(reach,total_interactions,saved,views)`,
+      baseFields,
+    ]) {
+      const params = new URLSearchParams({
+        fields,
+        since: String(since),
+        until: String(until),
+        limit: '50',
+        access_token: connection.accessToken,
+      });
+      try {
+        const resp = await axios.get<{ data: IgMediaItem[]; error?: unknown }>(
+          `${this.graphUrl}/${connection.accountId}/media?${params.toString()}`,
+        );
+        if (!resp.data.error) {
+          data = resp.data;
+          break;
+        }
+      } catch {
+        // try without insights
+      }
+    }
+    if (!data) {
+      throw new Error('IG media: request failed');
     }
 
     return (data.data ?? []).map((post) => {
@@ -197,7 +207,7 @@ export class MetaInstagramProvider implements ChannelProvider {
         publishedAt: new Date(post.timestamp),
         type: (post.media_type ?? 'IMAGE').toLowerCase(),
         caption: post.caption ?? null,
-        mediaUrl: null,
+        mediaUrl: post.thumbnail_url ?? post.media_url ?? null,
         metrics: {
           reach: ins.reach ?? 0,
           likes,
@@ -232,6 +242,38 @@ export class MetaInstagramProvider implements ChannelProvider {
       accessToken: data['access_token'] as string,
       expiresAt: new Date(Date.now() + expiresIn * 1000),
     };
+  }
+
+  // Try the full metric set; on failure degrade to a core set so an account
+  // that doesn't support an optional metric still returns its KPIs.
+  private async fetchAccountAggregates(
+    connection: Connection,
+    since: number,
+    until: number,
+  ): Promise<IgInsightMetric[]> {
+    const core = 'views,accounts_engaged,total_interactions,likes,comments';
+    for (const metric of [IG_ACCOUNT_METRICS, core]) {
+      const params = new URLSearchParams({
+        metric,
+        period: 'day',
+        metric_type: 'total_value',
+        since: String(since),
+        until: String(until),
+        access_token: connection.accessToken,
+      });
+      try {
+        const { data } = await axios.get<{
+          data: IgInsightMetric[];
+          error?: unknown;
+        }>(
+          `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
+        );
+        if (!data.error) return data.data ?? [];
+      } catch {
+        // try the smaller set
+      }
+    }
+    return [];
   }
 
   private ensureConfigured(): void {

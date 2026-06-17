@@ -11,6 +11,7 @@ import {
   PostData,
   TokenData,
 } from '../../channel-provider.interface';
+import { splitWindows } from './date-windows';
 
 const GRAPH_VERSION_DEFAULT = 'v25.0';
 
@@ -37,6 +38,8 @@ interface PagePost {
   id: string;
   message?: string;
   created_time: string;
+  full_picture?: string;
+  permalink_url?: string;
   likes?: { summary: { total_count: number } };
   comments?: { summary: { total_count: number } };
   shares?: { count: number };
@@ -64,38 +67,27 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     dateRange: DateRange,
   ): Promise<MetricRow[]> {
     this.ensureConfigured();
-    const since = Math.floor(dateRange.from.getTime() / 1000);
-    const until = Math.floor(dateRange.to.getTime() / 1000);
 
-    const params = new URLSearchParams({
-      metric: Object.keys(PAGE_METRIC_MAP).join(','),
-      period: 'day',
-      since: String(since),
-      until: String(until),
-      access_token: connection.accessToken,
-    });
-
-    const { data } = await axios.get<{ data: PageInsightMetric[] }>(
-      `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
-    );
-    if ((data as Record<string, unknown>)['error']) {
-      throw new Error(
-        `Meta page insights: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
-      );
-    }
-
+    // Meta caps /insights ranges at 30 days, so request in <=30-day windows.
     const rows: MetricRow[] = [];
-    for (const metricData of data.data ?? []) {
-      const metricName = PAGE_METRIC_MAP[metricData.name];
-      if (!metricName) continue;
-      for (const point of metricData.values ?? []) {
-        rows.push({
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date: new Date(point.end_time),
-          metric: metricName,
-          value: point.value,
-        });
+    for (const [since, until] of splitWindows(
+      dateRange.from,
+      dateRange.to,
+      30,
+    )) {
+      const data = await this.fetchPageInsights(connection, since, until);
+      for (const metricData of data) {
+        const metricName = PAGE_METRIC_MAP[metricData.name];
+        if (!metricName) continue;
+        for (const point of metricData.values ?? []) {
+          rows.push({
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date: new Date(point.end_time),
+            metric: metricName,
+            value: point.value,
+          });
+        }
       }
     }
 
@@ -128,25 +120,41 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     const since = Math.floor(dateRange.from.getTime() / 1000);
     const until = Math.floor(dateRange.to.getTime() / 1000);
 
-    // Post-level insights fetched inline (one call) via nested field expansion.
+    // Post-level insights via nested field expansion. If insights fail for a
+    // page, retry without them so posts (and their basic counts) still load.
     const insightMetrics =
       'post_impressions_unique,post_clicks,post_video_views,post_reactions_like_total';
-    const params = new URLSearchParams({
-      fields:
-        `id,message,created_time,likes.summary(true),comments.summary(true),shares,` +
-        `insights.metric(${insightMetrics})`,
-      since: String(since),
-      until: String(until),
-      limit: '50',
-      access_token: connection.accessToken,
-    });
+    const baseFields =
+      'id,message,created_time,full_picture,permalink_url,' +
+      'likes.summary(true),comments.summary(true),shares';
 
-    const { data } = await axios.get<{ data: PagePost[] }>(
-      `${this.graphUrl}/${connection.accountId}/posts?${params.toString()}`,
-    );
-    if ((data as Record<string, unknown>)['error']) {
+    let data: { data?: PagePost[]; error?: unknown } | null = null;
+    for (const fields of [
+      `${baseFields},insights.metric(${insightMetrics})`,
+      baseFields,
+    ]) {
+      const params = new URLSearchParams({
+        fields,
+        since: String(since),
+        until: String(until),
+        limit: '50',
+        access_token: connection.accessToken,
+      });
+      try {
+        const resp = await axios.get<{ data: PagePost[]; error?: unknown }>(
+          `${this.graphUrl}/${connection.accountId}/posts?${params.toString()}`,
+        );
+        if (!resp.data.error) {
+          data = resp.data;
+          break;
+        }
+      } catch {
+        // try without insights
+      }
+    }
+    if (!data) {
       throw new Error(
-        `Meta page posts: ${JSON.stringify((data as Record<string, unknown>)['error'])}`,
+        `Meta page posts: ${JSON.stringify((data as { error?: unknown } | null)?.error ?? 'request failed')}`,
       );
     }
 
@@ -167,7 +175,7 @@ export class MetaFacebookPageProvider implements ChannelProvider {
         publishedAt: new Date(post.created_time),
         type: 'post',
         caption: post.message ?? null,
-        mediaUrl: null,
+        mediaUrl: post.full_picture ?? null,
         metrics: {
           reach,
           likes,
@@ -203,6 +211,39 @@ export class MetaFacebookPageProvider implements ChannelProvider {
       accessToken: data['access_token'] as string,
       expiresAt: new Date(Date.now() + expiresIn * 1000),
     };
+  }
+
+  // Some Pages don't support every metric (e.g. page_daily_follows), and one
+  // bad metric fails the whole call. Try the full set, then degrade to the
+  // universally-valid core, so a connection never breaks over an optional one.
+  private async fetchPageInsights(
+    connection: Connection,
+    since: number,
+    until: number,
+  ): Promise<PageInsightMetric[]> {
+    const full = Object.keys(PAGE_METRIC_MAP).join(',');
+    const core = 'page_impressions_unique,page_post_engagements';
+    for (const metric of [full, core]) {
+      const params = new URLSearchParams({
+        metric,
+        period: 'day',
+        since: String(since),
+        until: String(until),
+        access_token: connection.accessToken,
+      });
+      try {
+        const { data } = await axios.get<{
+          data: PageInsightMetric[];
+          error?: unknown;
+        }>(
+          `${this.graphUrl}/${connection.accountId}/insights?${params.toString()}`,
+        );
+        if (!data.error) return data.data ?? [];
+      } catch {
+        // try the next (smaller) metric set
+      }
+    }
+    return [];
   }
 
   private ensureConfigured(): void {
