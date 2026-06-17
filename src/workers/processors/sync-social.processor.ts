@@ -76,10 +76,27 @@ export class SyncSocialProcessor extends WorkerHost {
         return;
       }
 
-      const [metricRows, postRows] = await Promise.all([
+      // Fetch metrics and posts independently: a failure in one must not block
+      // the other, so a metrics error never silently drops publications.
+      const [metricsRes, postsRes] = await Promise.allSettled([
         provider.fetchMetrics(decryptedConnection, { from, to }),
         provider.fetchPosts(decryptedConnection, { from, to }),
       ]);
+      if (metricsRes.status === 'rejected') {
+        this.logger.error(
+          `fetchMetrics failed for connection ${connectionId}`,
+          metricsRes.reason,
+        );
+      }
+      if (postsRes.status === 'rejected') {
+        this.logger.error(
+          `fetchPosts failed for connection ${connectionId}`,
+          postsRes.reason,
+        );
+      }
+      const metricRows =
+        metricsRes.status === 'fulfilled' ? metricsRes.value : [];
+      const postRows = postsRes.status === 'fulfilled' ? postsRes.value : [];
 
       const snapshots: MetricSnapshot[] = metricRows.map((row) => {
         const s = new MetricSnapshot();
@@ -104,8 +121,48 @@ export class SyncSocialProcessor extends WorkerHost {
         return p;
       });
 
-      await this.snapshotsRepo.upsertMany(snapshots);
-      await this.postsRepo.upsertMany(posts);
+      // Persist snapshots and posts independently so a write failure in one
+      // (e.g. a bad metric row) never wipes the other.
+      let snapshotsErr: unknown;
+      let postsErr: unknown;
+      try {
+        await this.snapshotsRepo.upsertMany(snapshots);
+      } catch (e) {
+        snapshotsErr = e;
+        this.logger.error(
+          `snapshot upsert failed for connection ${connectionId}`,
+          e,
+        );
+      }
+      try {
+        await this.postsRepo.upsertMany(posts);
+      } catch (e) {
+        postsErr = e;
+        this.logger.error(
+          `post upsert failed for connection ${connectionId}`,
+          e,
+        );
+      }
+
+      // Mark error only when nothing at all could be fetched or stored;
+      // otherwise the connection is (at least partially) healthy.
+      const totalFailed =
+        metricsRes.status === 'rejected' &&
+        postsRes.status === 'rejected';
+      const writeFailed = snapshotsErr && postsErr;
+      if (totalFailed || writeFailed) {
+        await this.connectionsRepo.updateStatus(
+          connectionId,
+          ConnectionStatusEnum.error,
+        );
+        const reason =
+          snapshotsErr ??
+          postsErr ??
+          (metricsRes.status === 'rejected' ? metricsRes.reason : undefined) ??
+          (postsRes.status === 'rejected' ? postsRes.reason : undefined) ??
+          new Error(`Sync failed for connection ${connectionId}`);
+        throw reason;
+      }
 
       await this.connectionsRepo.updateStatus(
         connectionId,

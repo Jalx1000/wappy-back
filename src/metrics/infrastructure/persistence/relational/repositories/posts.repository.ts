@@ -27,7 +27,11 @@ export class PostsRepository {
 
   async upsertMany(posts: Post[]): Promise<void> {
     if (!posts.length) return;
-    const entities = posts.map(PostMapper.toPersistence);
+    // Collapse duplicate externalIds (the ON CONFLICT key) to the last one so a
+    // repeated post in a page never triggers "cannot affect row a second time".
+    const byKey = new Map<string, Post>();
+    for (const p of posts) byKey.set(p.externalId, p);
+    const entities = [...byKey.values()].map(PostMapper.toPersistence);
     await this.repo
       .createQueryBuilder()
       .insert()

@@ -25,7 +25,16 @@ export class MetricSnapshotsRepository {
 
   async upsertMany(snapshots: MetricSnapshot[]): Promise<void> {
     if (!snapshots.length) return;
-    const entities = snapshots.map(MetricSnapshotMapper.toPersistence);
+    // Collapse rows that share the ON CONFLICT key (connectionId, metric, date)
+    // to the last one. Providers split insight ranges into windows whose edge day
+    // can appear twice; Postgres rejects an ON CONFLICT batch that touches the
+    // same row twice ("cannot affect row a second time").
+    const byKey = new Map<string, MetricSnapshot>();
+    for (const s of snapshots) {
+      const t = s.date instanceof Date ? s.date.getTime() : new Date(s.date).getTime();
+      byKey.set(`${s.connectionId}|${s.metric}|${t}`, s);
+    }
+    const entities = [...byKey.values()].map(MetricSnapshotMapper.toPersistence);
     await this.repo
       .createQueryBuilder()
       .insert()
