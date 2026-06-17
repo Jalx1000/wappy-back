@@ -270,9 +270,12 @@ export class MetaOAuthService implements ChannelOAuthService {
       );
       for (const biz of businesses) {
         for (const edge of ['owned_pages', 'client_pages']) {
+          // Lightweight fields only — the nested ig/token expansion across many
+          // client pages makes the response huge and Facebook's proxy errors
+          // out. Token + IG are resolved per-page below (fetchPageToken).
           add(
             await this.fetchAllPages(
-              `${this.graphUrl}/${biz.id}/${edge}?fields=${PAGE_FIELDS}&limit=100&access_token=${encodeURIComponent(accessToken)}`,
+              `${this.graphUrl}/${biz.id}/${edge}?fields=id,name&limit=50&access_token=${encodeURIComponent(accessToken)}`,
               `business ${biz.name ?? biz.id}/${edge}`,
             ),
             `business ${biz.name ?? biz.id}/${edge}`,
@@ -316,15 +319,21 @@ export class MetaOAuthService implements ChannelOAuthService {
     const out: PageData[] = [];
     let url: string | null = startUrl;
     while (url) {
-      const {
-        data,
-      }: {
-        data: {
-          data?: PageData[];
-          paging?: { next?: string };
-          error?: { message: string; code: number };
-        };
-      } = await axios.get(url);
+      let data: {
+        data?: PageData[];
+        paging?: { next?: string };
+        error?: { message: string; code: number };
+      };
+      try {
+        ({ data } = await axios.get(url));
+      } catch (err) {
+        // Network/proxy error on one edge must not abort the whole OAuth —
+        // keep whatever pages were already collected from other edges.
+        this.logger.warn(
+          `Meta OAuth: ${label} request failed → ${(err as Error).message}`,
+        );
+        break;
+      }
       if (data.error) {
         this.logger.warn(
           `Meta OAuth: ${label} error → ${JSON.stringify(data.error)}`,
