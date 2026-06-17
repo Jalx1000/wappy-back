@@ -15,11 +15,13 @@ import { splitWindows } from './date-windows';
 
 const GRAPH_VERSION_DEFAULT = 'v25.0';
 
-// v25 valid Page insight metrics (page_fan_count / page_impressions / page_reach
-// were removed and make the whole /insights call fail with (#100)).
+// Working Page insight metrics. NOTE: page_impressions / page_impressions_unique
+// (reach) are gated behind App Review — apps without that approval get (#100).
+// We map page_views_total → reach so the "Alcance" card/chart still populate with
+// the closest available volume metric; true unique reach needs the read_insights
+// page-impressions feature approved on the app.
 const PAGE_METRIC_MAP: Record<string, string> = {
-  page_impressions_unique: MetricEnum.reach,
-  page_views_total: MetricEnum.impressions,
+  page_views_total: MetricEnum.reach,
   page_post_engagements: MetricEnum.engagement,
   page_daily_follows: MetricEnum.new_follows,
 };
@@ -122,8 +124,9 @@ export class MetaFacebookPageProvider implements ChannelProvider {
 
     // Post-level insights via nested field expansion. If insights fail for a
     // page, retry without them so posts (and their basic counts) still load.
+    // post_impressions(_unique) are gated by App Review on this app → skip them.
     const insightMetrics =
-      'post_impressions_unique,post_clicks,post_video_views,post_reactions_like_total';
+      'post_clicks,post_video_views,post_reactions_like_total';
     const baseFields =
       'id,message,created_time,full_picture,permalink_url,' +
       'likes.summary(true),comments.summary(true),shares';
@@ -222,7 +225,7 @@ export class MetaFacebookPageProvider implements ChannelProvider {
     until: number,
   ): Promise<PageInsightMetric[]> {
     const full = Object.keys(PAGE_METRIC_MAP).join(',');
-    const core = 'page_impressions_unique,page_post_engagements';
+    const core = 'page_views_total,page_post_engagements';
     for (const metric of [full, core]) {
       const params = new URLSearchParams({
         metric,
