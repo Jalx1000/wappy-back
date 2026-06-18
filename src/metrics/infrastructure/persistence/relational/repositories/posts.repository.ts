@@ -27,10 +27,11 @@ export class PostsRepository {
 
   async upsertMany(posts: Post[]): Promise<void> {
     if (!posts.length) return;
-    // Collapse duplicate externalIds (the ON CONFLICT key) to the last one so a
-    // repeated post in a page never triggers "cannot affect row a second time".
+    // Collapse rows sharing the ON CONFLICT key (connectionId, externalId) to the
+    // last one so a repeated post never triggers "cannot affect row a second
+    // time". Posts are keyed per connection so each brand keeps its own copy.
     const byKey = new Map<string, Post>();
-    for (const p of posts) byKey.set(p.externalId, p);
+    for (const p of posts) byKey.set(`${p.connectionId}|${p.externalId}`, p);
     const entities = [...byKey.values()].map(PostMapper.toPersistence);
     await this.repo
       .createQueryBuilder()
@@ -39,7 +40,7 @@ export class PostsRepository {
       .values(entities)
       .orUpdate(
         ['publishedAt', 'type', 'caption', 'mediaUrl', 'metrics', 'updatedAt'],
-        ['externalId'],
+        ['connectionId', 'externalId'],
       )
       .execute();
   }
