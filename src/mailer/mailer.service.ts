@@ -9,16 +9,18 @@ import { AllConfigType } from '../config/config.type';
 export class MailerService {
   private readonly transporter: nodemailer.Transporter;
   constructor(private readonly configService: ConfigService<AllConfigType>) {
+    const user = configService.get('mail.user', { infer: true });
+    const pass = configService.get('mail.password', { infer: true });
     this.transporter = nodemailer.createTransport({
       host: configService.get('mail.host', { infer: true }),
       port: configService.get('mail.port', { infer: true }),
       ignoreTLS: configService.get('mail.ignoreTLS', { infer: true }),
       secure: configService.get('mail.secure', { infer: true }),
       requireTLS: configService.get('mail.requireTLS', { infer: true }),
-      auth: {
-        user: configService.get('mail.user', { infer: true }),
-        pass: configService.get('mail.password', { infer: true }),
-      },
+      // Only authenticate when credentials are configured; otherwise nodemailer
+      // tries (and fails) PLAIN auth against relays that accept unauthenticated
+      // mail. An empty auth object still triggers "Missing credentials for PLAIN".
+      ...(user ? { auth: { user, pass } } : {}),
     });
   }
 
