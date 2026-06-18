@@ -10,6 +10,7 @@ export class ReportMapper {
     domain.status = entity.status;
     domain.params = entity.params;
     domain.fileUrl = entity.fileUrl;
+    domain.data = entity.data;
     domain.errorMessage = entity.errorMessage;
     domain.createdAt = entity.createdAt;
     domain.updatedAt = entity.updatedAt;
@@ -23,6 +24,7 @@ export class ReportMapper {
     if (domain.status !== undefined) entity.status = domain.status;
     if (domain.params !== undefined) entity.params = domain.params;
     if (domain.fileUrl !== undefined) entity.fileUrl = domain.fileUrl;
+    if (domain.data !== undefined) entity.data = domain.data;
     if (domain.errorMessage !== undefined) entity.errorMessage = domain.errorMessage;
     return entity;
   }

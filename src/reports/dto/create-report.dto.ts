@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsOptional, IsArray, IsNumber } from 'class-validator';
+import {
+  IsEnum,
+  IsISO8601,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsString,
+} from 'class-validator';
 import { ReportTypeEnum } from '../domain/report-type.enum';
 
 export class CreateReportDto {
@@ -20,4 +27,13 @@ export class CreateReportDto {
   @IsArray()
   @IsNumber({}, { each: true })
   channelIds?: number[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Secciones a incluir (Social, Web, Ads). Vacío = todas.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  sections?: string[];
 }

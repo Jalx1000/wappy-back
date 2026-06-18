@@ -9,7 +9,7 @@ import {
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 import { ReportTypeEnum } from '../../../../domain/report-type.enum';
 import { ReportStatusEnum } from '../../../../domain/report-status.enum';
-import { ReportParams } from '../../../../domain/report';
+import { ReportData, ReportParams } from '../../../../domain/report';
 
 @Entity({ name: 'report' })
 export class ReportEntity extends EntityRelationalHelper {
@@ -31,6 +31,9 @@ export class ReportEntity extends EntityRelationalHelper {
 
   @Column({ type: String, nullable: true })
   fileUrl: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  data: ReportData | null;
 
   @Column({ type: String, nullable: true })
   errorMessage: string | null;

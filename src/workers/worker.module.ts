@@ -33,6 +33,7 @@ import { ReportsRelationalPersistenceModule } from '../reports/infrastructure/pe
 import { InsightsRelationalPersistenceModule } from '../insights/infrastructure/persistence/relational/relational-persistence.module';
 import { EncryptionModule } from '../encryption/encryption.module';
 import { ChannelProvidersModule } from '../channel-providers/channel-providers.module';
+import { ReportBuilderModule } from '../reports/report-builder.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { ChannelProvidersModule } from '../channel-providers/channel-providers.m
     OAuthDiscoveriesRelationalPersistenceModule,
     EncryptionModule,
     ChannelProvidersModule,
+    ReportBuilderModule,
   ],
   providers: [
     SyncSocialProcessor,

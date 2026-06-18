@@ -19,8 +19,14 @@ export class ReportsService {
       brandId,
       type: dto.type,
       status: ReportStatusEnum.pending,
-      params: { from: dto.from, to: dto.to, channelIds: dto.channelIds },
+      params: {
+        from: dto.from,
+        to: dto.to,
+        channelIds: dto.channelIds,
+        sections: dto.sections,
+      },
       fileUrl: null,
+      data: null,
       errorMessage: null,
     });
 
