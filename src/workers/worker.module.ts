@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import databaseConfig from '../database/config/database.config';
 import appConfig from '../config/app.config';
+import mailConfig from '../mail/config/mail.config';
 import { TypeOrmConfigService } from '../database/typeorm-config.service';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import {
@@ -44,7 +45,7 @@ import { ReportScheduleCronService } from './report-schedule-cron.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, appConfig],
+      load: [databaseConfig, appConfig, mailConfig],
       envFilePath: ['.env'],
     }),
     TypeOrmModule.forRootAsync({
