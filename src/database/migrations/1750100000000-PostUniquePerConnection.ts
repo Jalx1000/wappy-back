@@ -9,6 +9,12 @@ export class PostUniquePerConnection1750100000000
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // externalId's uniqueness is backed by a constraint, so DROP INDEX is
+    // rejected ("constraint requires it"); drop the constraint (which removes
+    // its backing index), then the stray index if any remains.
+    await queryRunner.query(
+      `ALTER TABLE "social_post" DROP CONSTRAINT IF EXISTS "UQ_social_post_externalId"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "UQ_social_post_externalId"`,
     );
