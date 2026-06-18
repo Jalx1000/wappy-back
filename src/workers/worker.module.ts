@@ -34,6 +34,11 @@ import { InsightsRelationalPersistenceModule } from '../insights/infrastructure/
 import { EncryptionModule } from '../encryption/encryption.module';
 import { ChannelProvidersModule } from '../channel-providers/channel-providers.module';
 import { ReportBuilderModule } from '../reports/report-builder.module';
+import { MailerModule } from '../mailer/mailer.module';
+import { RelationalUserPersistenceModule } from '../users/infrastructure/persistence/relational/relational-persistence.module';
+import { ReportPdfService } from '../reports/report-pdf.service';
+import { ReportEmailService } from '../reports/report-email.service';
+import { ReportScheduleCronService } from './report-schedule-cron.service';
 
 @Module({
   imports: [
@@ -82,6 +87,8 @@ import { ReportBuilderModule } from '../reports/report-builder.module';
     EncryptionModule,
     ChannelProvidersModule,
     ReportBuilderModule,
+    MailerModule,
+    RelationalUserPersistenceModule,
   ],
   providers: [
     SyncSocialProcessor,
@@ -93,6 +100,9 @@ import { ReportBuilderModule } from '../reports/report-builder.module';
     DiscoveryCleanupCronService,
     ReportProcessor,
     InsightProcessor,
+    ReportPdfService,
+    ReportEmailService,
+    ReportScheduleCronService,
   ],
 })
 export class WorkerModule {}
