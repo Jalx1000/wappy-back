@@ -89,7 +89,7 @@ export class ReportBuilderService {
     const prevTo = new Date(from.getTime() - 1);
 
     const wanted = this.resolveSections(params.sections);
-    const brand = await this.brandsRepo.findById(brandId);
+    const brand = await this.brandsRepo.findByIdIncludingDeleted(brandId);
     const connections = (await this.connectionsRepo.findByBrandId(brandId)).filter(
       (c) => c.status === ConnectionStatusEnum.connected,
     );
