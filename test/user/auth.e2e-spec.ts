@@ -174,7 +174,11 @@ describe('Auth Module', () => {
         });
     });
 
-    it('should fail on the second attempt to refresh token with the same token: /api/v1/auth/refresh (POST)', async () => {
+    it('should allow reusing the same refresh token: /api/v1/auth/refresh (POST)', async () => {
+      // The session hash is no longer rotated on refresh, so the same refresh
+      // token can be used more than once. This is deliberate: single-use
+      // rotation broke concurrent refreshes from the frontend and logged users
+      // out. The session stays revocable via logout / password change.
       const newUserRefreshToken = await request(app)
         .post('/api/v1/auth/email/login')
         .send({ email: newUserEmail, password: newUserPassword })
@@ -185,7 +189,8 @@ describe('Auth Module', () => {
         .auth(newUserRefreshToken, {
           type: 'bearer',
         })
-        .send();
+        .send()
+        .expect(200);
 
       await request(app)
         .post('/api/v1/auth/refresh')
@@ -193,7 +198,7 @@ describe('Auth Module', () => {
           type: 'bearer',
         })
         .send()
-        .expect(401);
+        .expect(200);
     });
 
     it('should update profile successfully: /api/v1/auth/me (PATCH)', async () => {

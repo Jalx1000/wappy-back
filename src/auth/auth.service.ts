@@ -497,17 +497,15 @@ export class AuthService {
   async refreshToken(
     data: Pick<JwtRefreshPayloadType, 'sessionId' | 'hash'>,
   ): Promise<Omit<LoginResponseDto, 'user'>> {
-    const hash = crypto
-      .createHash('sha256')
-      .update(randomStringGenerator())
-      .digest('hex');
+    // We intentionally do NOT rotate the session hash here. Rotation makes the
+    // refresh token single-use, which breaks under normal concurrent usage:
+    // the frontend fires several requests in parallel, each refreshes once the
+    // 15m access token expires, the first rotates the hash and the rest fail
+    // with the now-stale token — logging the user out. Verifying the hash
+    // without rotating keeps refreshes idempotent and the session revocable.
+    const session = await this.sessionService.findById(data.sessionId);
 
-    const session = await this.sessionService.updateByHash(
-      { id: data.sessionId, hash: data.hash },
-      { hash },
-    );
-
-    if (!session) {
+    if (!session || session.hash !== data.hash) {
       throw new UnauthorizedException();
     }
 
@@ -523,7 +521,7 @@ export class AuthService {
         id: user.role.id,
       },
       sessionId: session.id,
-      hash,
+      hash: session.hash,
     });
 
     return {
