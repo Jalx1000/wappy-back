@@ -37,6 +37,16 @@ interface TtReportRow {
   };
 }
 
+interface TtPageInfo {
+  page: number;
+  page_size: number;
+  total_number: number;
+  total_page: number;
+}
+
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 100;
+
 @Injectable()
 export class TiktokAdsProvider implements ChannelProvider {
   readonly channel = ChannelEnum.tiktok_ads;
@@ -157,28 +167,19 @@ export class TiktokAdsProvider implements ChannelProvider {
     headers: Record<string, string>,
   ): Promise<TtCampaign[]> {
     const url = `${API_BASE}/campaign/get/`;
-    const params = {
+    const fields = JSON.stringify([
+      'campaign_id',
+      'campaign_name',
+      'operation_status',
+      'objective_type',
+      'budget',
+    ]);
+    return this.fetchAllPages<TtCampaign>(url, headers, (page) => ({
       advertiser_id: advertiserId,
-      page_size: 200,
-      fields: JSON.stringify([
-        'campaign_id',
-        'campaign_name',
-        'operation_status',
-        'objective_type',
-        'budget',
-      ]),
-    };
-    const { data } = await axios.get<{
-      code: number;
-      message: string;
-      data?: { list?: TtCampaign[] };
-    }>(url, { params, headers });
-    if (data.code !== 0) {
-      throw new Error(
-        `TikTok campaign/get failed (code ${data.code}): ${data.message}`,
-      );
-    }
-    return data.data?.list ?? [];
+      fields,
+      page,
+      page_size: PAGE_SIZE,
+    }));
   }
 
   private async fetchReport(
@@ -188,7 +189,7 @@ export class TiktokAdsProvider implements ChannelProvider {
     headers: Record<string, string>,
   ): Promise<TtReportRow[]> {
     const url = `${API_BASE}/report/integrated/get/`;
-    const params = {
+    return this.fetchAllPages<TtReportRow>(url, headers, (page) => ({
       advertiser_id: advertiserId,
       service_type: 'AUCTION',
       report_type: 'BASIC',
@@ -205,19 +206,44 @@ export class TiktokAdsProvider implements ChannelProvider {
       ]),
       start_date: from,
       end_date: to,
-      page_size: 500,
-    };
-    const { data } = await axios.get<{
-      code: number;
-      message: string;
-      data?: { list?: TtReportRow[] };
-    }>(url, { params, headers });
-    if (data.code !== 0) {
-      throw new Error(
-        `TikTok report failed (code ${data.code}): ${data.message}`,
-      );
-    }
-    return data.data?.list ?? [];
+      page,
+      page_size: PAGE_SIZE,
+    }));
+  }
+
+  /**
+   * TikTok Business endpoints page results via page/page_size and report the
+   * total in data.page_info.total_page. Walk every page so accounts with many
+   * campaigns (or long date ranges) don't get silently truncated.
+   */
+  private async fetchAllPages<T>(
+    url: string,
+    headers: Record<string, string>,
+    buildParams: (page: number) => Record<string, unknown>,
+  ): Promise<T[]> {
+    const all: T[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const { data } = await axios.get<{
+        code: number;
+        message: string;
+        data?: { list?: T[]; page_info?: TtPageInfo };
+      }>(url, { params: buildParams(page), headers });
+
+      if (data.code !== 0) {
+        throw new Error(
+          `TikTok ${url} failed (code ${data.code}): ${data.message}`,
+        );
+      }
+
+      all.push(...(data.data?.list ?? []));
+      totalPages = data.data?.page_info?.total_page ?? 1;
+      page++;
+    } while (page <= totalPages && page <= MAX_PAGES);
+
+    return all;
   }
 
   private normalizeStatus(s: string): string {

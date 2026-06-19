@@ -160,9 +160,27 @@ export class ConnectionsService {
       await this.enqueueWebBackfill(brandId, connection.id);
     } else if (isNew && SOCIAL_CHANNELS.has(connection.channel)) {
       await this.enqueueSocialBackfill(brandId, connection.id);
+    } else if (isNew && ADS_CHANNELS.has(connection.channel)) {
+      await this.enqueueAdsBackfill(brandId, connection.id);
     }
 
     return connection;
+  }
+
+  private async enqueueAdsBackfill(brandId: number, connectionId: number) {
+    const to = new Date();
+    const from = new Date(Date.now() - BACKFILL_DAYS * 24 * 60 * 60 * 1000);
+    await this.syncAdsQueue.add(
+      'ads-sync',
+      {
+        brandId,
+        connectionId,
+        kind: 'sync',
+        dateFrom: from.toISOString(),
+        dateTo: to.toISOString(),
+      },
+      { jobId: `ads-backfill-${connectionId}-${Date.now()}` },
+    );
   }
 
   private async enqueueSocialBackfill(brandId: number, connectionId: number) {

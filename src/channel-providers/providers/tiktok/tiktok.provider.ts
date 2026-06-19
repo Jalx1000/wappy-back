@@ -29,8 +29,13 @@ interface TiktokVideoMetrics {
   comment_count: number;
   share_count: number;
   view_count: number;
-  reach: number;
 }
+
+// TikTok's video/list returns newest-first in pages of up to 20.
+const VIDEO_PAGE_SIZE = 20;
+// video/query accepts at most 20 ids per request.
+const VIDEO_QUERY_CHUNK = 20;
+const MAX_VIDEO_PAGES = 50;
 
 @Injectable()
 export class TiktokProvider implements ChannelProvider {
@@ -51,7 +56,7 @@ export class TiktokProvider implements ChannelProvider {
 
     const daily = new Map<
       string,
-      { likes: number; comments: number; shares: number; views: number; reach: number }
+      { likes: number; comments: number; shares: number; views: number }
     >();
 
     for (const video of videos) {
@@ -63,13 +68,11 @@ export class TiktokProvider implements ChannelProvider {
         comments: 0,
         shares: 0,
         views: 0,
-        reach: 0,
       };
       existing.likes += m.like_count;
       existing.comments += m.comment_count;
       existing.shares += m.share_count;
       existing.views += m.view_count;
-      existing.reach += m.reach;
       daily.set(dateKey, existing);
     }
 
@@ -104,13 +107,6 @@ export class TiktokProvider implements ChannelProvider {
           date,
           metric: MetricEnum.impressions,
           value: agg.views,
-        },
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.reach,
-          value: agg.reach,
         },
         {
           connectionId: connection.id,
@@ -191,27 +187,51 @@ export class TiktokProvider implements ChannelProvider {
     accessToken: string,
     dateRange: DateRange,
   ): Promise<TiktokVideo[]> {
-    const { data } = await axios.post<Record<string, unknown>>(
-      `${VIDEO_LIST_URL}?fields=id,create_time,title,cover_image_url`,
-      { max_count: 20 },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    const collected: TiktokVideo[] = [];
+    let cursor: number | undefined;
+    let hasMore = true;
+    let pages = 0;
+    const fromMs = dateRange.from.getTime();
+    const toMs = dateRange.to.getTime();
 
-    if (data['error']) {
-      throw new Error(`TikTok video list: ${JSON.stringify(data['error'])}`);
+    // video/list returns newest-first in pages of 20. Walk pages until TikTok
+    // says there's nothing left or we've paged past the start of the range.
+    while (hasMore && pages < MAX_VIDEO_PAGES) {
+      const body: Record<string, unknown> = { max_count: VIDEO_PAGE_SIZE };
+      if (cursor !== undefined) body.cursor = cursor;
+
+      const { data } = await axios.post<Record<string, unknown>>(
+        `${VIDEO_LIST_URL}?fields=id,create_time,title,cover_image_url`,
+        body,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+        throw new Error(`TikTok video list: ${JSON.stringify(data['error'])}`);
+      }
+
+      const payload = (data['data'] as Record<string, unknown>) ?? {};
+      const videos = (payload['videos'] as TiktokVideo[]) ?? [];
+      collected.push(...videos);
+
+      hasMore = Boolean(payload['has_more']);
+      cursor = payload['cursor'] as number | undefined;
+      pages++;
+
+      // Page is newest-first; once the oldest item predates the range start,
+      // further pages are even older — stop early.
+      const oldest = videos[videos.length - 1];
+      if (oldest && oldest.create_time * 1000 < fromMs) break;
     }
 
-    const videos: TiktokVideo[] =
-      ((data['data'] as Record<string, unknown>)?.['videos'] as TiktokVideo[]) ?? [];
-
-    return videos.filter((v) => {
+    return collected.filter((v) => {
       const ts = v.create_time * 1000;
-      return ts >= dateRange.from.getTime() && ts <= dateRange.to.getTime();
+      return ts >= fromMs && ts <= toMs;
     });
   }
 
@@ -219,27 +239,42 @@ export class TiktokProvider implements ChannelProvider {
     accessToken: string,
     videoIds: string[],
   ): Promise<TiktokVideoMetrics[]> {
-    const { data } = await axios.post<Record<string, unknown>>(
-      VIDEO_QUERY_URL,
-      {
-        filters: { video_ids: videoIds },
-        fields: ['id', 'like_count', 'comment_count', 'share_count', 'view_count', 'reach'],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    const results: TiktokVideoMetrics[] = [];
 
-    if (data['error']) {
-      throw new Error(`TikTok video query: ${JSON.stringify(data['error'])}`);
+    // video/query accepts at most 20 ids per call — batch accordingly.
+    for (let i = 0; i < videoIds.length; i += VIDEO_QUERY_CHUNK) {
+      const chunk = videoIds.slice(i, i + VIDEO_QUERY_CHUNK);
+      const { data } = await axios.post<Record<string, unknown>>(
+        VIDEO_QUERY_URL,
+        {
+          filters: { video_ids: chunk },
+          fields: [
+            'id',
+            'like_count',
+            'comment_count',
+            'share_count',
+            'view_count',
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+        throw new Error(`TikTok video query: ${JSON.stringify(data['error'])}`);
+      }
+
+      const videos =
+        ((data['data'] as Record<string, unknown>)?.['videos'] as TiktokVideoMetrics[]) ??
+        [];
+      results.push(...videos);
     }
 
-    return (
-      ((data['data'] as Record<string, unknown>)?.['videos'] as TiktokVideoMetrics[]) ?? []
-    );
+    return results;
   }
 
   private ensureConfigured(): void {
