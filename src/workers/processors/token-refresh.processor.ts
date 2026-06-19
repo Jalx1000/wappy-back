@@ -14,8 +14,10 @@ interface TokenRefreshPayload {
   connectionId?: number;
 }
 
-// Refresh tokens expiring within 48 hours
-const REFRESH_LOOKAHEAD_MS = 48 * 60 * 60 * 1000;
+// Refresh tokens expiring within 12 hours. Kept below TikTok's 24h access-token
+// life so we refresh roughly once per token cycle instead of every hourly tick
+// (which would rotate the refresh token 24x/day and multiply failure chances).
+const REFRESH_LOOKAHEAD_MS = 12 * 60 * 60 * 1000;
 
 @Processor(QUEUE_TOKENS)
 export class TokenRefreshProcessor extends WorkerHost {

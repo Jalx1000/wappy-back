@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
 import { Connection } from '../../../../domain/connection';
 import { ConnectionEntity } from '../entities/connection.entity';
 import { ConnectionMapper } from '../mappers/connection.mapper';
@@ -66,10 +66,18 @@ export class ConnectionsRepository {
   }
 
   async findExpiring(before: Date): Promise<Connection[]> {
+    // Include already-expired connections, not just connected ones. A single
+    // transient refresh failure flips status to `expired`; if we only retried
+    // `connected` ones it would be stuck there forever and force a manual
+    // re-auth. Retrying lets short-lived tokens (e.g. TikTok, 24h) self-heal
+    // as long as the refresh token is still valid.
     const entities = await this.repo.find({
       where: {
         expiresAt: LessThan(before),
-        status: ConnectionStatusEnum.connected,
+        status: In([
+          ConnectionStatusEnum.connected,
+          ConnectionStatusEnum.expired,
+        ]),
       },
     });
     return entities.map(ConnectionMapper.toDomain);
