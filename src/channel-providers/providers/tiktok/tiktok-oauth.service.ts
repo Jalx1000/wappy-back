@@ -22,7 +22,8 @@ export class TiktokOAuthService implements ChannelOAuthService {
     const params = new URLSearchParams({
       client_key: clientKey,
       redirect_uri: redirectUri,
-      scope: 'user.info.basic,user.info.profile,user.info.stats,video.list',
+      scope:
+        'user.info.basic,user.info.profile,user.info.stats,video.list,video.upload,video.publish',
       state,
       response_type: 'code',
     });
@@ -80,6 +81,8 @@ export class TiktokOAuthService implements ChannelOAuthService {
           'user.info.profile',
           'user.info.stats',
           'video.list',
+          'video.upload',
+          'video.publish',
         ],
         metadata: {
           openId,
