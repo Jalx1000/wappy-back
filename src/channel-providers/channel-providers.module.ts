@@ -5,6 +5,7 @@ import { MetaInstagramProvider } from './providers/meta/meta-instagram.provider'
 import { MetaAdsProvider } from './providers/meta/meta-ads.provider';
 import { InstagramLoginProvider } from './providers/instagram-login/instagram-login.provider';
 import { TiktokProvider } from './providers/tiktok/tiktok.provider';
+import { TiktokPublishService } from './providers/tiktok/tiktok-publish.service';
 import { TiktokAdsProvider } from './providers/tiktok-ads/tiktok-ads.provider';
 import { LinkedinProvider } from './providers/linkedin/linkedin.provider';
 import { LinkedinAdsProvider } from './providers/linkedin-ads/linkedin-ads.provider';
@@ -22,6 +23,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     MetaAdsProvider,
     InstagramLoginProvider,
     TiktokProvider,
+    TiktokPublishService,
     TiktokAdsProvider,
     LinkedinProvider,
     LinkedinAdsProvider,
@@ -79,6 +81,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     GoogleAdsProvider,
     MetaAdsProvider,
     TiktokAdsProvider,
+    TiktokPublishService,
     LinkedinAdsProvider,
     InstagramLoginProvider,
   ],
