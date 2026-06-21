@@ -8,5 +8,6 @@ import { BrandsModule } from '../brands/brands.module';
   imports: [CalendarRelationalPersistenceModule, BrandsModule],
   controllers: [CalendarController],
   providers: [CalendarService],
+  exports: [CalendarService],
 })
 export class CalendarModule {}
