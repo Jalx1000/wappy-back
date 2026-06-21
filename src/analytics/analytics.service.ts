@@ -15,6 +15,16 @@ import { ConnectionStatusEnum } from '../connections/domain/connection-status.en
 
 const WEB_STALE_AFTER_MS = 26 * 60 * 60 * 1000;
 
+// Point-in-time social metrics: each row is a daily snapshot of a running
+// total, not a per-day increment. They must be read as the latest value in a
+// range, never summed (summing daily follower counts is meaningless).
+const SNAPSHOT_METRICS = new Set<string>([
+  MetricEnum.followers,
+  MetricEnum.following,
+  MetricEnum.total_likes,
+  MetricEnum.video_count,
+]);
+
 @Injectable()
 export class AnalyticsService {
   constructor(
@@ -85,17 +95,19 @@ export class AnalyticsService {
       : await this.postsRepo.findTopByBrandId(brandId, 5);
 
     const kpis: Record<string, number> = {};
+    const latest: Record<string, { t: number; value: number }> = {};
     for (const s of snapshots) {
-      if (!kpis[s.metric]) kpis[s.metric] = 0;
-      kpis[s.metric] += s.value;
+      if (SNAPSHOT_METRICS.has(s.metric)) {
+        const t = new Date(s.date).getTime();
+        if (!latest[s.metric] || t >= latest[s.metric].t) {
+          latest[s.metric] = { t, value: s.value };
+        }
+      } else {
+        kpis[s.metric] = (kpis[s.metric] ?? 0) + s.value;
+      }
     }
-
-    const followerSnapshots = snapshots.filter(
-      (s) => s.metric === MetricEnum.followers,
-    );
-    if (followerSnapshots.length) {
-      kpis[MetricEnum.followers] =
-        followerSnapshots[followerSnapshots.length - 1].value;
+    for (const [metric, { value }] of Object.entries(latest)) {
+      kpis[metric] = value;
     }
 
     return {
@@ -757,8 +769,16 @@ export class AnalyticsService {
     current: MetricSnapshot[],
     previous: MetricSnapshot[],
   ): Record<string, { current: number; previous: number; change: number }> {
-    const sum = (arr: MetricSnapshot[], m: MetricEnum) =>
-      arr.filter((s) => s.metric === m).reduce((acc, s) => acc + s.value, 0);
+    const valueOf = (arr: MetricSnapshot[], m: string) => {
+      const rows = arr.filter((s) => s.metric === m);
+      if (!rows.length) return 0;
+      if (SNAPSHOT_METRICS.has(m)) {
+        return rows.reduce((a, b) =>
+          new Date(b.date).getTime() >= new Date(a.date).getTime() ? b : a,
+        ).value;
+      }
+      return rows.reduce((acc, s) => acc + s.value, 0);
+    };
 
     const result: Record<
       string,
@@ -767,8 +787,8 @@ export class AnalyticsService {
 
     const metrics = [...new Set(current.map((s) => s.metric))];
     for (const metric of metrics) {
-      const cur = sum(current, metric as MetricEnum);
-      const prev = sum(previous, metric as MetricEnum);
+      const cur = valueOf(current, metric);
+      const prev = valueOf(previous, metric);
       result[metric] = {
         current: cur,
         previous: prev,
