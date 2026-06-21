@@ -8,6 +8,5 @@ import { BrandsModule } from '../brands/brands.module';
   imports: [AssetsRelationalPersistenceModule, BrandsModule],
   controllers: [AssetsController],
   providers: [AssetsService],
-  exports: [AssetsService],
 })
 export class AssetsModule {}

@@ -11,6 +11,7 @@ import {
   QUEUE_EMAILS,
   QUEUE_INSIGHTS,
   QUEUE_MENTIONS,
+  QUEUE_PUBLISH,
   QUEUE_REPORTS,
   QUEUE_SYNC_ADS,
   QUEUE_SYNC_SOCIAL,
@@ -40,6 +41,10 @@ import { RelationalUserPersistenceModule } from '../users/infrastructure/persist
 import { ReportPdfService } from '../reports/report-pdf.service';
 import { ReportEmailService } from '../reports/report-email.service';
 import { ReportScheduleCronService } from './report-schedule-cron.service';
+import { PublishingCoreModule } from '../publishing/publishing-core.module';
+import { CalendarRelationalPersistenceModule } from '../calendar/infrastructure/persistence/relational/relational-persistence.module';
+import { PublishScheduleCronService } from './publish-schedule-cron.service';
+import { PublishProcessor } from './processors/publish.processor';
 
 @Module({
   imports: [
@@ -78,8 +83,11 @@ import { ReportScheduleCronService } from './report-schedule-cron.service';
       { name: QUEUE_EMAILS },
       { name: QUEUE_MENTIONS },
       { name: QUEUE_INSIGHTS },
+      { name: QUEUE_PUBLISH },
     ),
     ConnectionsRelationalPersistenceModule,
+    CalendarRelationalPersistenceModule,
+    PublishingCoreModule,
     MetricsRelationalPersistenceModule,
     AnalyticsRelationalPersistenceModule,
     ReportsRelationalPersistenceModule,
@@ -104,6 +112,8 @@ import { ReportScheduleCronService } from './report-schedule-cron.service';
     ReportPdfService,
     ReportEmailService,
     ReportScheduleCronService,
+    PublishScheduleCronService,
+    PublishProcessor,
   ],
 })
 export class WorkerModule {}

@@ -6,3 +6,4 @@ export const QUEUE_REPORTS = 'reports';
 export const QUEUE_EMAILS = 'emails';
 export const QUEUE_MENTIONS = 'mentions';
 export const QUEUE_INSIGHTS = 'insights';
+export const QUEUE_PUBLISH = 'publish';

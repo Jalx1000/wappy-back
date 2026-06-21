@@ -50,6 +50,7 @@ import {
   QUEUE_EMAILS,
   QUEUE_INSIGHTS,
   QUEUE_MENTIONS,
+  QUEUE_PUBLISH,
   QUEUE_REPORTS,
   QUEUE_SYNC_ADS,
   QUEUE_SYNC_SOCIAL,
@@ -161,6 +162,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
       { name: QUEUE_EMAILS, adapter: BullMQAdapter },
       { name: QUEUE_MENTIONS, adapter: BullMQAdapter },
       { name: QUEUE_INSIGHTS, adapter: BullMQAdapter },
+      { name: QUEUE_PUBLISH, adapter: BullMQAdapter },
     ),
   ],
 })

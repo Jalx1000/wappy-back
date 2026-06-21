@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { CalendarService } from '../calendar/calendar.service';
-import { ConnectionsService } from '../connections/connections.service';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { CalendarItemsRepository } from '../calendar/infrastructure/persistence/relational/repositories/calendar-items.repository';
+import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { EncryptionService } from '../encryption/encryption.service';
 import {
@@ -42,8 +47,8 @@ export class PublicationsService {
   private readonly logger = new Logger(PublicationsService.name);
 
   constructor(
-    private readonly calendar: CalendarService,
-    private readonly connectionsService: ConnectionsService,
+    private readonly calendarRepo: CalendarItemsRepository,
+    private readonly connectionsRepo: ConnectionsRepository,
     private readonly encryption: EncryptionService,
     private readonly media: MediaResolverService,
     private readonly tiktokPublish: TiktokPublishService,
@@ -56,7 +61,10 @@ export class PublicationsService {
     itemId: number,
     brandId: number,
   ): Promise<PublicationResult> {
-    const item = await this.calendar.getById(itemId, brandId);
+    const item = await this.calendarRepo.findById(itemId);
+    if (!item || item.brandId !== brandId) {
+      throw new NotFoundException('Calendar item not found');
+    }
     const meta = (item.metadata ?? {}) as PublicationMeta;
 
     if (!meta.assetId) {
@@ -79,10 +87,9 @@ export class PublicationsService {
     const anyFail = Object.values(results).some((r) => r.ok === false);
     const status = anyFail ? 'failed' : 'published';
 
-    await this.calendar.update(itemId, brandId, {
-      status,
-      metadata: { ...meta, results },
-    });
+    item.status = status;
+    item.metadata = { ...meta, results };
+    await this.calendarRepo.save(item);
 
     return { itemId, status, results };
   }
@@ -98,7 +105,13 @@ export class PublicationsService {
       if (!connectionId) {
         throw new Error('No TikTok connection set for this item');
       }
-      const conn = await this.connectionsService.findOne(brandId, connectionId);
+      const conn = await this.connectionsRepo.findByBrandIdAndId(
+        brandId,
+        connectionId,
+      );
+      if (!conn) {
+        throw new Error(`TikTok connection #${connectionId} not found`);
+      }
       if (conn.channel !== ChannelEnum.tiktok) {
         throw new Error('Connection is not a TikTok organic account');
       }
