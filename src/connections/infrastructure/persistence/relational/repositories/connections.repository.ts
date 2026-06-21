@@ -65,6 +65,14 @@ export class ConnectionsRepository {
     return entity ? ConnectionMapper.toDomain(entity) : null;
   }
 
+  async findByChannelAndAccount(
+    channel: ChannelEnum,
+    accountId: string,
+  ): Promise<Connection[]> {
+    const entities = await this.repo.find({ where: { channel, accountId } });
+    return entities.map(ConnectionMapper.toDomain);
+  }
+
   async findExpiring(before: Date): Promise<Connection[]> {
     // Include already-expired connections, not just connected ones. A single
     // transient refresh failure flips status to `expired`; if we only retried

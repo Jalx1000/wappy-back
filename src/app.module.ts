@@ -43,6 +43,7 @@ import { ApprovalsModule } from './approvals/approvals.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InboxModule } from './inbox/inbox.module';
 import { PublishingModule } from './publishing/publishing.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -149,6 +150,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     NotificationsModule,
     InboxModule,
     PublishingModule,
+    WebhooksModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
