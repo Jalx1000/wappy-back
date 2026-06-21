@@ -22,7 +22,7 @@ export class TiktokOAuthService implements ChannelOAuthService {
     const params = new URLSearchParams({
       client_key: clientKey,
       redirect_uri: redirectUri,
-      scope: 'user.info.basic,video.list',
+      scope: 'user.info.basic,user.info.profile,user.info.stats,video.list',
       state,
       response_type: 'code',
     });
@@ -58,7 +58,7 @@ export class TiktokOAuthService implements ChannelOAuthService {
     const openId = tokenData['open_id'] as string;
 
     const { data: userData } = await axios.get<Record<string, unknown>>(
-      `${USER_INFO_URL}?fields=open_id,union_id,display_name,avatar_url`,
+      `${USER_INFO_URL}?fields=open_id,union_id,display_name,avatar_url,username`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     const user =
@@ -68,12 +68,26 @@ export class TiktokOAuthService implements ChannelOAuthService {
       {
         channel: ChannelEnum.tiktok,
         accountId: openId ?? (user['open_id'] as string),
-        accountHandle: (user['display_name'] as string) ?? openId,
+        accountHandle:
+          (user['username'] as string) ??
+          (user['display_name'] as string) ??
+          openId,
         accessToken,
         refreshToken,
         expiresAt: new Date(Date.now() + expiresIn * 1000),
-        scopes: ['user.info.basic', 'video.list'],
-        metadata: { openId, unionId: user['union_id'] },
+        scopes: [
+          'user.info.basic',
+          'user.info.profile',
+          'user.info.stats',
+          'video.list',
+        ],
+        metadata: {
+          openId,
+          unionId: user['union_id'],
+          username: user['username'],
+          displayName: user['display_name'],
+          avatarUrl: user['avatar_url'],
+        },
       },
     ];
   }

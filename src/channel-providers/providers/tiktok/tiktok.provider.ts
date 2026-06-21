@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { ChannelEnum } from '../../../connections/domain/channel.enum';
@@ -14,6 +14,7 @@ import {
 
 const VIDEO_LIST_URL = 'https://open.tiktokapis.com/v2/video/list/';
 const VIDEO_QUERY_URL = 'https://open.tiktokapis.com/v2/video/query/';
+const USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 const TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
 
 interface TiktokVideo {
@@ -31,6 +32,13 @@ interface TiktokVideoMetrics {
   view_count: number;
 }
 
+interface TiktokProfileStats {
+  follower_count?: number;
+  following_count?: number;
+  likes_count?: number;
+  video_count?: number;
+}
+
 // TikTok's video/list returns newest-first in pages of up to 20.
 const VIDEO_PAGE_SIZE = 20;
 // video/query accepts at most 20 ids per request.
@@ -40,6 +48,7 @@ const MAX_VIDEO_PAGES = 50;
 @Injectable()
 export class TiktokProvider implements ChannelProvider {
   readonly channel = ChannelEnum.tiktok;
+  private readonly logger = new Logger(TiktokProvider.name);
 
   constructor(private readonly config: ConfigService) {}
 
@@ -48,75 +57,104 @@ export class TiktokProvider implements ChannelProvider {
     dateRange: DateRange,
   ): Promise<MetricRow[]> {
     this.ensureConfigured();
-    const videos = await this.listVideos(connection.accessToken, dateRange);
-    if (videos.length === 0) return [];
-
-    const videoIds = videos.map((v) => v.id);
-    const metrics = await this.queryVideoMetrics(connection.accessToken, videoIds);
-
-    const daily = new Map<
-      string,
-      { likes: number; comments: number; shares: number; views: number }
-    >();
-
-    for (const video of videos) {
-      const dateKey = new Date(video.create_time * 1000).toISOString().split('T')[0];
-      const m = metrics.find((x) => x.id === video.id);
-      if (!m) continue;
-      const existing = daily.get(dateKey) ?? {
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        views: 0,
-      };
-      existing.likes += m.like_count;
-      existing.comments += m.comment_count;
-      existing.shares += m.share_count;
-      existing.views += m.view_count;
-      daily.set(dateKey, existing);
-    }
-
     const rows: MetricRow[] = [];
-    for (const [dateStr, agg] of daily) {
-      const date = new Date(dateStr);
-      rows.push(
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.likes,
-          value: agg.likes,
-        },
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.comments,
-          value: agg.comments,
-        },
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.shares,
-          value: agg.shares,
-        },
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.impressions,
-          value: agg.views,
-        },
-        {
-          connectionId: connection.id,
-          brandId: connection.brandId,
-          date,
-          metric: MetricEnum.engagement,
-          value: agg.likes + agg.comments + agg.shares,
-        },
+
+    const videos = await this.listVideos(connection.accessToken, dateRange);
+    if (videos.length > 0) {
+      const videoIds = videos.map((v) => v.id);
+      const metrics = await this.queryVideoMetrics(
+        connection.accessToken,
+        videoIds,
       );
+
+      const daily = new Map<
+        string,
+        { likes: number; comments: number; shares: number; views: number }
+      >();
+
+      for (const video of videos) {
+        const dateKey = new Date(video.create_time * 1000)
+          .toISOString()
+          .split('T')[0];
+        const m = metrics.find((x) => x.id === video.id);
+        if (!m) continue;
+        const existing = daily.get(dateKey) ?? {
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+        };
+        existing.likes += m.like_count;
+        existing.comments += m.comment_count;
+        existing.shares += m.share_count;
+        existing.views += m.view_count;
+        daily.set(dateKey, existing);
+      }
+
+      for (const [dateStr, agg] of daily) {
+        const date = new Date(dateStr);
+        rows.push(
+          {
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date,
+            metric: MetricEnum.likes,
+            value: agg.likes,
+          },
+          {
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date,
+            metric: MetricEnum.comments,
+            value: agg.comments,
+          },
+          {
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date,
+            metric: MetricEnum.shares,
+            value: agg.shares,
+          },
+          {
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date,
+            metric: MetricEnum.impressions,
+            value: agg.views,
+          },
+          {
+            connectionId: connection.id,
+            brandId: connection.brandId,
+            date,
+            metric: MetricEnum.engagement,
+            value: agg.likes + agg.comments + agg.shares,
+          },
+        );
+      }
     }
+
+    // Profile-level totals (followers / following / cumulative likes / video
+    // count) as of today. Dated to dateRange.to so the daily cron leaves one
+    // row per day, enabling arbitrary date-range comparisons (e.g. 2-year
+    // follower growth). Non-fatal: a stats failure must not drop video metrics.
+    try {
+      const stats = await this.fetchProfileStats(connection.accessToken);
+      if (stats) {
+        const date = dateRange.to;
+        const base = { connectionId: connection.id, brandId: connection.brandId, date };
+        if (stats.follower_count !== undefined)
+          rows.push({ ...base, metric: MetricEnum.followers, value: stats.follower_count });
+        if (stats.following_count !== undefined)
+          rows.push({ ...base, metric: MetricEnum.following, value: stats.following_count });
+        if (stats.likes_count !== undefined)
+          rows.push({ ...base, metric: MetricEnum.total_likes, value: stats.likes_count });
+        if (stats.video_count !== undefined)
+          rows.push({ ...base, metric: MetricEnum.video_count, value: stats.video_count });
+      }
+    } catch (err) {
+      this.logger.warn(`TikTok profile stats: ${(err as Error).message}`);
+    }
+
     return rows;
   }
 
@@ -233,6 +271,24 @@ export class TiktokProvider implements ChannelProvider {
       const ts = v.create_time * 1000;
       return ts >= fromMs && ts <= toMs;
     });
+  }
+
+  private async fetchProfileStats(
+    accessToken: string,
+  ): Promise<TiktokProfileStats | null> {
+    const { data } = await axios.get<Record<string, unknown>>(
+      `${USER_INFO_URL}?fields=follower_count,following_count,likes_count,video_count`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+      throw new Error(`TikTok user info: ${JSON.stringify(data['error'])}`);
+    }
+
+    return (
+      ((data['data'] as Record<string, unknown>)?.['user'] as TiktokProfileStats) ??
+      null
+    );
   }
 
   private async queryVideoMetrics(

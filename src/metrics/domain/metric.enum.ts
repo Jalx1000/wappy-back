@@ -17,6 +17,9 @@ export enum MetricEnum {
   website_clicks = 'website_clicks',
   total_interactions = 'total_interactions',
   new_follows = 'new_follows',
+  following = 'following',
+  total_likes = 'total_likes',
+  video_count = 'video_count',
   // Web (GA4) metrics
   users = 'users',
   page_views = 'page_views',
