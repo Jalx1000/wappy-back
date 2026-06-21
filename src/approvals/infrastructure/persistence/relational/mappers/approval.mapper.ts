@@ -9,6 +9,7 @@ export class ApprovalMapper {
     domain.id = entity.id;
     domain.brandId = entity.brandId;
     domain.assetId = entity.assetId;
+    domain.calendarItemId = entity.calendarItemId;
     domain.requestedByUserId = entity.requestedByUserId;
     domain.reviewedByUserId = entity.reviewedByUserId;
     domain.status = entity.status;
@@ -24,6 +25,7 @@ export class ApprovalMapper {
     entity.id = domain.id;
     entity.brandId = domain.brandId;
     entity.assetId = domain.assetId;
+    entity.calendarItemId = domain.calendarItemId;
     entity.requestedByUserId = domain.requestedByUserId;
     entity.reviewedByUserId = domain.reviewedByUserId;
     entity.status = domain.status;

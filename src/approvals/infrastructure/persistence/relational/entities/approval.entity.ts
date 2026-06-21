@@ -14,6 +14,9 @@ export class ApprovalEntity {
   @Column({ name: 'asset_id' })
   assetId: number;
 
+  @Column({ name: 'calendar_item_id', nullable: true })
+  calendarItemId?: number;
+
   @Column({ name: 'requested_by_user_id' })
   requestedByUserId: number;
 

@@ -11,6 +11,7 @@ export class Approval {
   id: number;
   brandId: number;
   assetId: number;
+  calendarItemId?: number;
   requestedByUserId: number;
   reviewedByUserId?: number;
   status: string;

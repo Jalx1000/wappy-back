@@ -4,10 +4,14 @@ import { Approval } from './domain/approval';
 import { CreateApprovalDto } from './dto/create-approval.dto';
 import { ReviewApprovalDto } from './dto/review-approval.dto';
 import { RoleEnum } from '../roles/roles.enum';
+import { CalendarItemsRepository } from '../calendar/infrastructure/persistence/relational/repositories/calendar-items.repository';
 
 @Injectable()
 export class ApprovalsService {
-  constructor(private readonly approvalsRepo: ApprovalsRepository) {}
+  constructor(
+    private readonly approvalsRepo: ApprovalsRepository,
+    private readonly calendarRepo: CalendarItemsRepository,
+  ) {}
 
   async getById(id: number, brandId: number): Promise<Approval> {
     const approval = await this.approvalsRepo.findById(id);
@@ -25,6 +29,7 @@ export class ApprovalsService {
     const approval = new Approval();
     approval.brandId = brandId;
     approval.assetId = dto.assetId;
+    approval.calendarItemId = dto.calendarItemId;
     approval.requestedByUserId = userId;
     approval.status = 'pending';
     approval.annotations = [];
@@ -49,6 +54,25 @@ export class ApprovalsService {
     if (dto.annotations) {
       approval.annotations = dto.annotations;
     }
-    return this.approvalsRepo.save(approval);
+    const reviewed = await this.approvalsRepo.save(approval);
+
+    // Approval gate: approving schedules the linked publication; rejecting
+    // sends it back to draft. Only touch items still awaiting review.
+    if (approval.calendarItemId) {
+      const next =
+        dto.status === 'approved'
+          ? 'scheduled'
+          : dto.status === 'rejected'
+            ? 'draft'
+            : null;
+      if (next) {
+        const item = await this.calendarRepo.findById(approval.calendarItemId);
+        if (item && item.brandId === brandId && item.status === 'review') {
+          await this.calendarRepo.updateStatus(item.id, next);
+        }
+      }
+    }
+
+    return reviewed;
   }
 }

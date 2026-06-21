@@ -3,9 +3,14 @@ import { ApprovalsRelationalPersistenceModule } from './infrastructure/persisten
 import { ApprovalsController } from './approvals.controller';
 import { ApprovalsService } from './approvals.service';
 import { BrandsModule } from '../brands/brands.module';
+import { CalendarRelationalPersistenceModule } from '../calendar/infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
-  imports: [ApprovalsRelationalPersistenceModule, BrandsModule],
+  imports: [
+    ApprovalsRelationalPersistenceModule,
+    BrandsModule,
+    CalendarRelationalPersistenceModule,
+  ],
   controllers: [ApprovalsController],
   providers: [ApprovalsService],
 })
