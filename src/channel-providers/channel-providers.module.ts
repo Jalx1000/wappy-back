@@ -3,6 +3,7 @@ import { MockChannelProvider } from './mock-channel.provider';
 import { MetaFacebookPageProvider } from './providers/meta/meta-facebook-page.provider';
 import { MetaInstagramProvider } from './providers/meta/meta-instagram.provider';
 import { MetaAdsProvider } from './providers/meta/meta-ads.provider';
+import { MetaPublishService } from './providers/meta/meta-publish.service';
 import { InstagramLoginProvider } from './providers/instagram-login/instagram-login.provider';
 import { TiktokProvider } from './providers/tiktok/tiktok.provider';
 import { TiktokPublishService } from './providers/tiktok/tiktok-publish.service';
@@ -24,6 +25,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     InstagramLoginProvider,
     TiktokProvider,
     TiktokPublishService,
+    MetaPublishService,
     TiktokAdsProvider,
     LinkedinProvider,
     LinkedinAdsProvider,
@@ -82,6 +84,7 @@ export const CHANNEL_PROVIDERS = 'CHANNEL_PROVIDERS';
     MetaAdsProvider,
     TiktokAdsProvider,
     TiktokPublishService,
+    MetaPublishService,
     LinkedinAdsProvider,
     InstagramLoginProvider,
   ],

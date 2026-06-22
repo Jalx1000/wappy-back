@@ -7,11 +7,14 @@ import {
 import { CalendarItemsRepository } from '../calendar/infrastructure/persistence/relational/repositories/calendar-items.repository';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
+import { ConnectionStatusEnum } from '../connections/domain/connection-status.enum';
+import { Connection } from '../connections/domain/connection';
 import { EncryptionService } from '../encryption/encryption.service';
 import {
   TiktokPrivacyLevel,
   TiktokPublishService,
 } from '../channel-providers/providers/tiktok/tiktok-publish.service';
+import { MetaPublishService } from '../channel-providers/providers/meta/meta-publish.service';
 import { MediaResolverService } from './media-resolver.service';
 
 export interface PublicationResult {
@@ -39,6 +42,8 @@ interface PublicationMeta {
   disableComment?: boolean;
   disableDuet?: boolean;
   disableStitch?: boolean;
+  facebookConnectionId?: number;
+  instagramConnectionId?: number;
   results?: Record<string, NetworkResult>;
 }
 
@@ -52,6 +57,7 @@ export class PublicationsService {
     private readonly encryption: EncryptionService,
     private readonly media: MediaResolverService,
     private readonly tiktokPublish: TiktokPublishService,
+    private readonly metaPublish: MetaPublishService,
   ) {}
 
   // Publish a calendar item to every selected network. Each network is
@@ -82,7 +88,17 @@ export class PublicationsService {
     if (networks.includes('tiktok')) {
       results.tiktok = await this.publishTiktok(item, brandId, meta);
     }
-    // facebook / instagram: added in a later step (Meta publishing).
+    if (networks.includes('facebook')) {
+      results.facebook = await this.publishMeta('facebook', item, brandId, meta);
+    }
+    if (networks.includes('instagram')) {
+      results.instagram = await this.publishMeta(
+        'instagram',
+        item,
+        brandId,
+        meta,
+      );
+    }
 
     const anyFail = Object.values(results).some((r) => r.ok === false);
     const status = anyFail ? 'failed' : 'published';
@@ -95,7 +111,12 @@ export class PublicationsService {
   }
 
   private async publishTiktok(
-    item: { id: number; title: string; connectionId?: number },
+    item: {
+      id: number;
+      title: string;
+      description?: string;
+      connectionId?: number;
+    },
     brandId: number,
     meta: PublicationMeta,
   ): Promise<NetworkResult> {
@@ -146,6 +167,79 @@ export class PublicationsService {
       );
       return { ok: false, error, at };
     }
+  }
+
+  private async publishMeta(
+    network: 'facebook' | 'instagram',
+    item: { id: number; title: string; description?: string },
+    brandId: number,
+    meta: PublicationMeta,
+  ): Promise<NetworkResult> {
+    const at = new Date().toISOString();
+    try {
+      const channel =
+        network === 'facebook'
+          ? ChannelEnum.facebook_page
+          : ChannelEnum.instagram;
+      const overrideId =
+        network === 'facebook'
+          ? meta.facebookConnectionId
+          : meta.instagramConnectionId;
+      const conn = await this.resolveConnection(brandId, channel, overrideId);
+      const token = this.decrypt(conn.accessToken);
+      const media = await this.media.resolveAssetUrl(meta.assetId!, brandId);
+      const caption = item.description ?? item.title;
+
+      const r =
+        network === 'facebook'
+          ? await this.metaPublish.publishFacebookVideo(
+              conn.accountId,
+              token,
+              media.url,
+              caption,
+            )
+          : await this.metaPublish.publishInstagramReel(
+              conn.accountId,
+              token,
+              media.url,
+              caption,
+            );
+      this.logger.log(
+        `Published calendar item ${item.id} to ${network}: ${r.postId}`,
+      );
+      return { ok: true, publishId: r.postId, mode: network, at };
+    } catch (err) {
+      const error = (err as Error).message;
+      this.logger.error(
+        `${network} publish failed for calendar item ${item.id}: ${error}`,
+      );
+      return { ok: false, error, at };
+    }
+  }
+
+  private async resolveConnection(
+    brandId: number,
+    channel: ChannelEnum,
+    overrideId?: number,
+  ): Promise<Connection> {
+    if (overrideId) {
+      const c = await this.connectionsRepo.findByBrandIdAndId(
+        brandId,
+        overrideId,
+      );
+      if (c) return c;
+    }
+    const all = await this.connectionsRepo.findByBrandId(brandId);
+    const c =
+      all.find(
+        (x) =>
+          x.channel === channel &&
+          x.status === ConnectionStatusEnum.connected,
+      ) ?? all.find((x) => x.channel === channel);
+    if (!c) {
+      throw new Error(`No ${channel} connection for brand`);
+    }
+    return c;
   }
 
   private decrypt(token: string): string {

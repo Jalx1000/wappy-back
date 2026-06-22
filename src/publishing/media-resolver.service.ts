@@ -56,6 +56,30 @@ export class MediaResolverService {
     };
   }
 
+  // Public/temporary URL for an asset's file — used by providers that pull from
+  // a URL (Meta FB/IG) instead of uploading bytes.
+  async resolveAssetUrl(
+    assetId: number,
+    brandId: number,
+  ): Promise<{ url: string; mimeType: string; name: string }> {
+    const asset = await this.assetsRepo.findById(assetId);
+    if (!asset || asset.brandId !== brandId) {
+      throw new NotFoundException(`Asset #${assetId} not found`);
+    }
+    if (!asset.fileId) {
+      throw new NotFoundException(`Asset #${assetId} has no file attached`);
+    }
+    const file = await this.fileRepository.findById(asset.fileId);
+    if (!file) {
+      throw new NotFoundException(`File for asset #${assetId} not found`);
+    }
+    return {
+      url: await this.resolveUrl(file.path),
+      mimeType: asset.mimeType,
+      name: asset.name,
+    };
+  }
+
   private async resolveUrl(path: string): Promise<string> {
     const cfg = fileConfig() as FileConfig;
 
