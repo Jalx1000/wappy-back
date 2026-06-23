@@ -41,15 +41,21 @@ export class AnalyticsController {
   @Get('social/top-posts')
   @ApiQuery({ name: 'connectionId', type: Number })
   @ApiQuery({ name: 'limit', type: Number, required: false })
+  @ApiQuery({ name: 'from', type: String, required: false })
+  @ApiQuery({ name: 'to', type: String, required: false })
   getTopPosts(
     @CurrentBrand() brand: Brand,
     @Query('connectionId', ParseIntPipe) connectionId: number,
     @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     return this.analyticsService.getTopPosts(
       brand.id,
       connectionId,
       limit ? parseInt(limit, 10) : 10,
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
     );
   }
 

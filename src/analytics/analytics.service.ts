@@ -72,7 +72,18 @@ export class AnalyticsService {
     brandId: number,
     connectionId: number,
     limit: number,
+    from?: Date,
+    to?: Date,
   ): Promise<Post[]> {
+    if (from && to) {
+      return this.postsRepo.findTopByConnectionAndRange(
+        connectionId,
+        brandId,
+        from,
+        to,
+        limit,
+      );
+    }
     return this.postsRepo.findTopByConnectionId(connectionId, brandId, limit);
   }
 

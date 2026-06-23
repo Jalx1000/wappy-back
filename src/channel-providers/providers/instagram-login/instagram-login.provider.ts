@@ -152,7 +152,9 @@ export class InstagramLoginProvider implements ChannelProvider {
         publishedAt: new Date(post.timestamp),
         type: (post.media_type ?? 'IMAGE').toLowerCase(),
         caption: post.caption ?? null,
-        mediaUrl: post.media_url ?? post.thumbnail_url ?? null,
+        // Prefer the thumbnail so VIDEO/REEL posts render in an <img>; media_url
+        // for videos is the playable file, not an image.
+        mediaUrl: post.thumbnail_url ?? post.media_url ?? null,
         metrics: {
           likes: post.like_count ?? 0,
           comments: post.comments_count ?? 0,

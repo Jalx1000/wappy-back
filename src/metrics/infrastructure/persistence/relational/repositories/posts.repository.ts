@@ -62,6 +62,26 @@ export class PostsRepository {
     return entities.map(PostMapper.toDomain);
   }
 
+  async findTopByConnectionAndRange(
+    connectionId: number,
+    brandId: number,
+    from: Date,
+    to: Date,
+    limit: number,
+  ): Promise<Post[]> {
+    const entities = await this.repo
+      .createQueryBuilder('p')
+      .where('p.connectionId = :connectionId AND p.brandId = :brandId', {
+        connectionId,
+        brandId,
+      })
+      .andWhere('p.publishedAt BETWEEN :from AND :to', { from, to })
+      .orderBy(`(p.metrics->>'engagement')::float`, 'DESC', 'NULLS LAST')
+      .take(limit)
+      .getMany();
+    return entities.map(PostMapper.toDomain);
+  }
+
   async findTopByBrandId(brandId: number, limit: number): Promise<Post[]> {
     const entities = await this.repo
       .createQueryBuilder('p')
