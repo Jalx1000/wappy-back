@@ -161,7 +161,7 @@ export class PublicationsService {
       );
       return { ok: true, publishId: r.publishId, mode: r.mode, at };
     } catch (err) {
-      const error = (err as Error).message;
+      const error = this.describeError(err);
       this.logger.error(
         `TikTok publish failed for calendar item ${item.id}: ${error}`,
       );
@@ -209,7 +209,7 @@ export class PublicationsService {
       );
       return { ok: true, publishId: r.postId, mode: network, at };
     } catch (err) {
-      const error = (err as Error).message;
+      const error = this.describeError(err);
       this.logger.error(
         `${network} publish failed for calendar item ${item.id}: ${error}`,
       );
@@ -248,5 +248,20 @@ export class PublicationsService {
     } catch {
       return token;
     }
+  }
+
+  // Surface the provider's actual error body (e.g. TikTok/Meta scope/permission
+  // reason) instead of a bare "Request failed with status code 401".
+  private describeError(err: unknown): string {
+    const e = err as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
+    if (e.response?.data !== undefined) {
+      const data = e.response.data;
+      const body = typeof data === 'string' ? data : JSON.stringify(data);
+      return `HTTP ${e.response.status ?? '?'}: ${body}`.slice(0, 500);
+    }
+    return e.message ?? String(err);
   }
 }
