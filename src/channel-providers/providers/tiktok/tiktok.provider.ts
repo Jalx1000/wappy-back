@@ -300,18 +300,11 @@ export class TiktokProvider implements ChannelProvider {
     // video/query accepts at most 20 ids per call — batch accordingly.
     for (let i = 0; i < videoIds.length; i += VIDEO_QUERY_CHUNK) {
       const chunk = videoIds.slice(i, i + VIDEO_QUERY_CHUNK);
+      // TikTok requires `fields` as a URL query param for video/query (same as
+      // video/list); passing it in the body returns 400 "fields is required".
       const { data } = await axios.post<Record<string, unknown>>(
-        VIDEO_QUERY_URL,
-        {
-          filters: { video_ids: chunk },
-          fields: [
-            'id',
-            'like_count',
-            'comment_count',
-            'share_count',
-            'view_count',
-          ],
-        },
+        `${VIDEO_QUERY_URL}?fields=id,like_count,comment_count,share_count,view_count`,
+        { filters: { video_ids: chunk } },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
