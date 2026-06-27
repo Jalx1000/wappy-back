@@ -29,6 +29,8 @@ interface TtReportRow {
   metrics: {
     spend?: string;
     impressions?: string;
+    reach?: string;
+    frequency?: string;
     clicks?: string;
     conversion?: string;
     ctr?: string;
@@ -128,6 +130,7 @@ export class TiktokAdsProvider implements ChannelProvider {
       const date = new Date(row.dimensions.stat_time_day);
       const spend = Number(row.metrics?.spend ?? 0);
       const impressions = Number(row.metrics?.impressions ?? 0);
+      const reach = Number(row.metrics?.reach ?? 0);
       const clicks = Number(row.metrics?.clicks ?? 0);
       const conversions = Number(row.metrics?.conversion ?? 0);
 
@@ -136,6 +139,13 @@ export class TiktokAdsProvider implements ChannelProvider {
       snap.date = date;
       snap.spend = spend;
       snap.impressions = impressions;
+      snap.reach = reach;
+      // Prefer TikTok's reported frequency; else derive impressions/reach.
+      snap.frequency = row.metrics?.frequency
+        ? Number(row.metrics.frequency)
+        : reach > 0
+          ? impressions / reach
+          : undefined;
       snap.clicks = clicks;
       snap.conversions = conversions;
       snap.ctr = impressions > 0 ? clicks / impressions : undefined;
@@ -198,6 +208,8 @@ export class TiktokAdsProvider implements ChannelProvider {
       metrics: JSON.stringify([
         'spend',
         'impressions',
+        'reach',
+        'frequency',
         'clicks',
         'conversion',
         'ctr',

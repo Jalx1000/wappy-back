@@ -5,6 +5,8 @@ export class AdMetricSnapshot {
   date: Date;
   spend: number;
   impressions: number;
+  reach: number;
+  frequency?: number;
   clicks: number;
   ctr?: number;
   cpc?: number;

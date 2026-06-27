@@ -12,6 +12,8 @@ export class AdMetricSnapshotMapper {
     domain.date = entity.date;
     domain.spend = Number(entity.spend);
     domain.impressions = entity.impressions;
+    domain.reach = entity.reach ?? 0;
+    domain.frequency = entity.frequency ? Number(entity.frequency) : undefined;
     domain.clicks = entity.clicks;
     domain.ctr = entity.ctr ? Number(entity.ctr) : undefined;
     domain.cpc = entity.cpc ? Number(entity.cpc) : undefined;
@@ -30,6 +32,8 @@ export class AdMetricSnapshotMapper {
     entity.date = domain.date;
     entity.spend = domain.spend;
     entity.impressions = domain.impressions;
+    entity.reach = domain.reach ?? 0;
+    entity.frequency = domain.frequency;
     entity.clicks = domain.clicks;
     entity.ctr = domain.ctr;
     entity.cpc = domain.cpc;

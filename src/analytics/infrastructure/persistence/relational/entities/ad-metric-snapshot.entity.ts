@@ -22,6 +22,15 @@ export class AdMetricSnapshotEntity {
   @Column({ default: 0 })
   impressions: number;
 
+  // Unique accounts reached (per day, per campaign). Meta/TikTok report it
+  // natively; summing dailies over a range approximates period reach.
+  @Column({ default: 0 })
+  reach: number;
+
+  // Avg impressions per reached user for the row (impressions / reach).
+  @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true })
+  frequency?: number;
+
   @Column({ default: 0 })
   clicks: number;
 

@@ -162,11 +162,26 @@ export class AnalyticsService {
     const cur = this.aggregateAdMetrics(snapshots);
     const prev = this.aggregateAdMetrics(prevSnapshots);
 
+    const curCpa = cur.conversions > 0 ? cur.spend / cur.conversions : 0;
+    const prevCpa = prev.conversions > 0 ? prev.spend / prev.conversions : 0;
     const kpis = [
       {
         label: 'Inversión',
         value: this.formatMoney(cur.spend),
         delta: this.deltaPct(cur.spend, prev.spend),
+        spark: this.dailyValues(snapshots, 'spend'),
+      },
+      {
+        label: 'Impresiones',
+        value: this.formatNumber(cur.impressions),
+        delta: this.deltaPct(cur.impressions, prev.impressions),
+        spark: this.dailyValues(snapshots, 'impressions'),
+      },
+      {
+        label: 'CPM',
+        value: this.formatMoney(cur.cpm),
+        delta: this.deltaPct(cur.cpm, prev.cpm),
+        goodDown: true,
         spark: this.dailyValues(snapshots, 'spend'),
       },
       {
@@ -184,15 +199,24 @@ export class AnalyticsService {
       },
       {
         label: 'CPA',
-        value: this.formatMoney(
-          cur.conversions > 0 ? cur.spend / cur.conversions : 0,
-        ),
-        delta: this.deltaPct(
-          cur.conversions > 0 ? cur.spend / cur.conversions : 0,
-          prev.conversions > 0 ? prev.spend / prev.conversions : 0,
-        ),
+        value: this.formatMoney(curCpa),
+        delta: this.deltaPct(curCpa, prevCpa),
         goodDown: true,
         spark: this.dailyValues(snapshots, 'spend'),
+      },
+      // Reach + frequency: only present once a provider that reports them
+      // (TikTok/Meta Ads) has synced. Shown after the core spend KPIs.
+      {
+        label: 'Alcance',
+        value: this.formatNumber(cur.reach),
+        delta: this.deltaPct(cur.reach, prev.reach),
+        spark: this.dailyValues(snapshots, 'reach'),
+      },
+      {
+        label: 'Frecuencia',
+        value: `${cur.frequency.toFixed(2)}x`,
+        delta: this.deltaPct(cur.frequency, prev.frequency),
+        spark: this.dailyValues(snapshots, 'impressions'),
       },
     ];
 
@@ -343,7 +367,7 @@ export class AnalyticsService {
 
   private dailyValues(
     snapshots: AdMetricSnapshot[],
-    key: 'spend' | 'conversions',
+    key: 'spend' | 'conversions' | 'impressions' | 'reach',
   ): number[] {
     const byDay = new Map<string, number>();
     for (const s of snapshots) {
@@ -713,6 +737,8 @@ export class AnalyticsService {
     const totals = {
       spend: 0,
       impressions: 0,
+      reach: 0,
+      frequency: 0,
       clicks: 0,
       conversions: 0,
       ctr: 0,
@@ -724,6 +750,7 @@ export class AnalyticsService {
     for (const s of snapshots) {
       totals.spend += s.spend;
       totals.impressions += s.impressions;
+      totals.reach += s.reach ?? 0;
       totals.clicks += s.clicks;
       totals.conversions += s.conversions;
     }
@@ -741,6 +768,13 @@ export class AnalyticsService {
     }
     if (totals.spend > 0) {
       totals.roas = Number((totals.conversions / totals.spend).toFixed(2));
+    }
+    // Frequency = avg impressions per reached user. Derived from aggregates,
+    // never summed (summing per-day frequency is meaningless).
+    if (totals.reach > 0) {
+      totals.frequency = Number(
+        (totals.impressions / totals.reach).toFixed(2),
+      );
     }
 
     return totals;
