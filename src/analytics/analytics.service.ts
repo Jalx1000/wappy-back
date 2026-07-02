@@ -106,19 +106,26 @@ export class AnalyticsService {
       : await this.postsRepo.findTopByBrandId(brandId, 5);
 
     const kpis: Record<string, number> = {};
-    const latest: Record<string, { t: number; value: number }> = {};
+    // Snapshot metrics (followers, following, …) are point-in-time, not additive.
+    // Keep the latest snapshot PER CONNECTION, then sum across connections, so a
+    // brand-level total reflects all its pages/accounts instead of just whichever
+    // connection happened to sync last. For a single-connection request this is
+    // equivalent to taking that connection's latest value.
+    const latestPerConn: Record<string, { t: number; value: number }> = {};
     for (const s of snapshots) {
       if (SNAPSHOT_METRICS.has(s.metric)) {
+        const key = `${s.metric}|${s.connectionId}`;
         const t = new Date(s.date).getTime();
-        if (!latest[s.metric] || t >= latest[s.metric].t) {
-          latest[s.metric] = { t, value: s.value };
+        if (!latestPerConn[key] || t >= latestPerConn[key].t) {
+          latestPerConn[key] = { t, value: s.value };
         }
       } else {
         kpis[s.metric] = (kpis[s.metric] ?? 0) + s.value;
       }
     }
-    for (const [metric, { value }] of Object.entries(latest)) {
-      kpis[metric] = value;
+    for (const [key, { value }] of Object.entries(latestPerConn)) {
+      const metric = key.slice(0, key.indexOf('|'));
+      kpis[metric] = (kpis[metric] ?? 0) + value;
     }
 
     return {
