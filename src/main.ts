@@ -20,7 +20,13 @@ async function bootstrap() {
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
 
-  app.use(helmet());
+  // CORP same-origin (default de helmet) hace que el navegador bloquee las
+  // imágenes de /files/* embebidas desde el frontend (otro dominio), aunque el
+  // request devuelva 200. El API sirve assets para otros orígenes por diseño
+  // (CORS ya es abierto), así que se relaja solo esa política.
+  app.use(
+    helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }),
+  );
   // TODO: BullBoardMiddleware no está registrado como provider — comentado para
   // que el arranque no falle. Reactivar cuando se agregue a app.module providers.
   // app.use('/admin/queues', app.get(BullBoardMiddleware));
