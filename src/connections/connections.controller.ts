@@ -28,6 +28,7 @@ import { Brand } from '../brands/domain/brand';
 import { ConnectionsService } from './connections.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { UpdateConnectionDto } from './dto/update-connection.dto';
+import { SyncConnectionDto } from './dto/sync-connection.dto';
 
 @ApiTags('Connections')
 @ApiBearerAuth()
@@ -39,10 +40,7 @@ export class ConnectionsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(
-    @CurrentBrand() brand: Brand,
-    @Body() dto: CreateConnectionDto,
-  ) {
+  create(@CurrentBrand() brand: Brand, @Body() dto: CreateConnectionDto) {
     return this.connectionsService.create(brand.id, dto);
   }
 
@@ -53,10 +51,7 @@ export class ConnectionsController {
 
   @Get(':id')
   @ApiParam({ name: 'id', type: Number })
-  findOne(
-    @CurrentBrand() brand: Brand,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  findOne(@CurrentBrand() brand: Brand, @Param('id', ParseIntPipe) id: number) {
     return this.connectionsService.findOne(brand.id, id);
   }
 
@@ -83,10 +78,7 @@ export class ConnectionsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', type: Number })
-  remove(
-    @CurrentBrand() brand: Brand,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  remove(@CurrentBrand() brand: Brand, @Param('id', ParseIntPipe) id: number) {
     return this.connectionsService.remove(brand.id, id);
   }
 
@@ -96,8 +88,9 @@ export class ConnectionsController {
   sync(
     @CurrentBrand() brand: Brand,
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SyncConnectionDto,
   ) {
-    return this.connectionsService.enqueueSync(brand.id, id);
+    return this.connectionsService.enqueueSync(brand.id, id, dto.from, dto.to);
   }
 
   @Get(':id/sync-jobs/:jobId')
@@ -115,8 +108,7 @@ export class ConnectionsController {
     @Query('queue') queueHint?: 'web' | 'ads' | 'social',
   ) {
     const connection = await this.connectionsService.findOne(brand.id, id);
-    const queueName =
-      queueHint ?? this.resolveQueue(connection.channel);
+    const queueName = queueHint ?? this.resolveQueue(connection.channel);
     const result = await this.connectionsService.getJobState(queueName, jobId);
     if (!result) throw new NotFoundException(`Job ${jobId} not found`);
     return result;

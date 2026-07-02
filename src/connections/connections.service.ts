@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
@@ -200,10 +204,28 @@ export class ConnectionsService {
   async enqueueSync(
     brandId: number,
     id: number,
+    fromArg?: string,
+    toArg?: string,
   ): Promise<{ jobIds: (string | undefined)[] }> {
     const connection = await this.findOne(brandId, id);
-    const to = new Date();
-    const from = new Date(Date.now() - BACKFILL_DAYS * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    // Custom window (manual "Sincronizar" over a picked date range) falls back
+    // to the default 90-day backfill when not provided. `to` never exceeds now:
+    // the platforms have no future data and Meta rejects future `until`.
+    // A date-only "to" (YYYY-MM-DD) means the whole day, not its midnight.
+    let to = toArg
+      ? new Date(toArg.length === 10 ? `${toArg}T23:59:59.999Z` : toArg)
+      : now;
+    if (isNaN(to.getTime()))
+      throw new BadRequestException(`Invalid "to" date: ${toArg}`);
+    if (to.getTime() > now.getTime()) to = now;
+    const from = fromArg
+      ? new Date(fromArg)
+      : new Date(to.getTime() - BACKFILL_DAYS * 24 * 60 * 60 * 1000);
+    if (isNaN(from.getTime()))
+      throw new BadRequestException(`Invalid "from" date: ${fromArg}`);
+    if (from.getTime() > to.getTime())
+      throw new BadRequestException('"from" must be before "to"');
 
     if (connection.channel === ChannelEnum.ga4) {
       return this.enqueueWebRange(brandId, id, from, to);
