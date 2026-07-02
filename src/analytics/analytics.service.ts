@@ -5,6 +5,7 @@ import { AdMetricSnapshotsRepository } from './infrastructure/persistence/relati
 import { AdCampaignsRepository } from './infrastructure/persistence/relational/repositories/ad-campaigns.repository';
 import { WebDimensionSnapshotsRepository } from './infrastructure/persistence/relational/repositories/web-dimension-snapshots.repository';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
+import { BrandsService } from '../brands/brands.service';
 import { MetricSnapshot } from '../metrics/domain/metric-snapshot';
 import { Post } from '../metrics/domain/post';
 import { MetricEnum } from '../metrics/domain/metric.enum';
@@ -35,7 +36,106 @@ export class AnalyticsService {
     private readonly adCampaignsRepo: AdCampaignsRepository,
     private readonly webDimRepo: WebDimensionSnapshotsRepository,
     private readonly connectionsRepo: ConnectionsRepository,
+    private readonly brandsService: BrandsService,
   ) {}
+
+  // Cross-brand summary for the Marcas grid: last 30 days vs the 30 before.
+  // Engagement uses the same interactions source and denominator as the social
+  // analytics module so both screens report the same number.
+  async getBrandsOverview() {
+    const DAY = 24 * 60 * 60 * 1000;
+    const to = new Date();
+    const from = new Date(to.getTime() - 30 * DAY);
+    const prevTo = new Date(from.getTime() - 1);
+    const prevFrom = new Date(from.getTime() - 30 * DAY);
+
+    const brands = await this.brandsService.findAll();
+
+    return Promise.all(
+      brands.map(async (brand) => {
+        const [connections, members, social, prevSocial, ads, prevAds] =
+          await Promise.all([
+            this.connectionsRepo.findByBrandId(brand.id),
+            this.brandsService.getMembers(brand.id),
+            this.snapshotsRepo.findByBrandAndRange(brand.id, from, to),
+            this.snapshotsRepo.findByBrandAndRange(brand.id, prevFrom, prevTo),
+            this.adMetricsRepo.findByBrandAndDateRange(brand.id, from, to),
+            this.adMetricsRepo.findByBrandAndDateRange(
+              brand.id,
+              prevFrom,
+              prevTo,
+            ),
+          ]);
+
+        const kpis = aggregateSnapshotKpis(social, SNAPSHOT_METRICS);
+        const prevKpis = aggregateSnapshotKpis(prevSocial, SNAPSHOT_METRICS);
+        const adsCur = this.aggregateAdMetrics(ads);
+        const adsPrev = this.aggregateAdMetrics(prevAds);
+
+        const followers = kpis[MetricEnum.followers] ?? 0;
+        const reach = kpis[MetricEnum.reach] ?? 0;
+        const interactions =
+          kpis[MetricEnum.engagement] ??
+          kpis[MetricEnum.total_interactions] ??
+          0;
+        const prevInteractions =
+          prevKpis[MetricEnum.engagement] ??
+          prevKpis[MetricEnum.total_interactions] ??
+          0;
+        const engBase = followers > 0 ? followers : reach;
+        const engagementRate =
+          engBase > 0 ? (interactions / engBase) * 100 : 0;
+
+        // Headline delta for the card footer: first social metric with any
+        // data in either period, falling back to ad spend for ads-only brands.
+        const prevReach = prevKpis[MetricEnum.reach] ?? 0;
+        let delta: {
+          metric: 'reach' | 'interactions' | 'spend';
+          pct: number;
+        } | null = null;
+        if (reach > 0 || prevReach > 0) {
+          delta = { metric: 'reach', pct: this.deltaPct(reach, prevReach) };
+        } else if (interactions > 0 || prevInteractions > 0) {
+          delta = {
+            metric: 'interactions',
+            pct: this.deltaPct(interactions, prevInteractions),
+          };
+        } else if (adsCur.spend > 0 || adsPrev.spend > 0) {
+          delta = {
+            metric: 'spend',
+            pct: this.deltaPct(adsCur.spend, adsPrev.spend),
+          };
+        }
+
+        // expired/error connections are still linked accounts (they show as
+        // "reauth" in the UI); only pending ones aren't real yet.
+        const activeConnections = connections.filter(
+          (c) => c.status !== ConnectionStatusEnum.pending,
+        );
+        const channels = [...new Set(activeConnections.map((c) => c.channel))];
+
+        return {
+          id: brand.id,
+          name: brand.name,
+          slug: brand.slug,
+          description: brand.description,
+          isActive: brand.isActive,
+          logoPath: brand.logoPath,
+          channels,
+          connectionsCount: activeConnections.length,
+          membersCount: members.length,
+          metrics: {
+            followers,
+            reach,
+            interactions,
+            engagementRate: Number(engagementRate.toFixed(2)),
+            spend: Number(adsCur.spend.toFixed(2)),
+          },
+          delta,
+        };
+      }),
+    );
+  }
 
   async getSocialOverview(
     brandId: number,

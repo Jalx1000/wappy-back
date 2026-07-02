@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { AnalyticsController } from './analytics.controller';
+import { BrandsOverviewController } from './brands-overview.controller';
 import { AnalyticsService } from './analytics.service';
 import { MetricsModule } from '../metrics/metrics.module';
 import { BrandsModule } from '../brands/brands.module';
@@ -15,7 +16,7 @@ import { ConnectionsRelationalPersistenceModule } from '../connections/infrastru
     AnalyticsRelationalPersistenceModule,
     ConnectionsRelationalPersistenceModule,
   ],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, BrandsOverviewController],
   providers: [AnalyticsService],
 })
 export class AnalyticsModule {}

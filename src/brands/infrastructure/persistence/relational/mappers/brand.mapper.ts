@@ -9,6 +9,7 @@ export class BrandMapper {
     domain.slug = raw.slug;
     domain.description = raw.description;
     domain.isActive = raw.isActive;
+    domain.logoPath = raw.settings?.logoPath ?? null;
     domain.createdAt = raw.createdAt;
     domain.updatedAt = raw.updatedAt;
     domain.deletedAt = raw.deletedAt;

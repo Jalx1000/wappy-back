@@ -16,6 +16,11 @@ export class Brand {
   @ApiProperty({ type: Boolean })
   isActive: boolean;
 
+  // Stored in brand_settings.logoPath; surfaced here so every brand read
+  // (list, detail, overview) carries the logo without an extra request.
+  @ApiProperty({ type: String, nullable: true })
+  logoPath: string | null;
+
   @ApiProperty()
   createdAt: Date;
 

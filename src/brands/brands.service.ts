@@ -53,6 +53,13 @@ export class BrandsService {
       BrandMemberRoleEnum.admin,
     );
 
+    if (dto.logoPath) {
+      await this.brandsRepo.updateSettings(created.id, {
+        logoPath: dto.logoPath,
+      });
+      created.logoPath = dto.logoPath;
+    }
+
     return created;
   }
 
@@ -74,7 +81,16 @@ export class BrandsService {
         throw new ConflictException(`Slug "${dto.slug}" is already taken`);
       }
     }
-    return this.brandsRepo.update(id, dto);
+    // logoPath lives in brand_settings, not in the brand table — split it out
+    // before the column update or TypeORM rejects the unknown property.
+    const { logoPath, ...brandFields } = dto;
+    if (logoPath !== undefined) {
+      await this.brandsRepo.updateSettings(id, { logoPath });
+    }
+    if (Object.keys(brandFields).length > 0) {
+      await this.brandsRepo.update(id, brandFields);
+    }
+    return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {

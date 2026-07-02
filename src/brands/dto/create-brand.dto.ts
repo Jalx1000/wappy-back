@@ -33,4 +33,11 @@ export class CreateBrandDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // URL/path returned by POST /files/upload. Null clears the logo.
+  @ApiPropertyOptional({ example: '/api/v1/files/abc123.jpg', nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  logoPath?: string | null;
 }
