@@ -3,6 +3,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import {
   QUEUE_SYNC_ADS,
+  QUEUE_SYNC_SOCIAL,
   QUEUE_SYNC_WEB,
 } from '../queues/queue-names.constants';
 
@@ -15,6 +16,7 @@ export class WebSyncCronService implements OnApplicationBootstrap {
   constructor(
     @InjectQueue(QUEUE_SYNC_WEB) private readonly webQueue: Queue,
     @InjectQueue(QUEUE_SYNC_ADS) private readonly adsQueue: Queue,
+    @InjectQueue(QUEUE_SYNC_SOCIAL) private readonly socialQueue: Queue,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -62,8 +64,32 @@ export class WebSyncCronService implements OnApplicationBootstrap {
       },
     );
 
+    // Social — misma cadencia. Antes NO existía cron social: FB/IG/TikTok solo
+    // sincronizaban en el backfill del OAuth o con el botón manual, y las
+    // conexiones envejecían silenciosamente.
+    await this.socialQueue.add(
+      'social-fanout-morning',
+      { kind: 'fanout', window: 'yesterday' },
+      {
+        jobId: 'social-fanout-morning',
+        repeat: { pattern: '0 6 * * *', tz: TZ },
+        removeOnComplete: { count: 10 },
+        removeOnFail: { count: 100 },
+      },
+    );
+    await this.socialQueue.add(
+      'social-fanout-midday',
+      { kind: 'fanout', window: 'today' },
+      {
+        jobId: 'social-fanout-midday',
+        repeat: { pattern: '0 13 * * *', tz: TZ },
+        removeOnComplete: { count: 10 },
+        removeOnFail: { count: 100 },
+      },
+    );
+
     this.logger.log(
-      `Web + Ads daily sync registered: 06:00 + 13:00 ${TZ}`,
+      `Web + Ads + Social daily sync registered: 06:00 + 13:00 ${TZ}`,
     );
   }
 }

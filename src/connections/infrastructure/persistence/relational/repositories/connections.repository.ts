@@ -92,9 +92,18 @@ export class ConnectionsRepository {
   }
 
   async findConnectedByChannel(channel: ChannelEnum): Promise<Connection[]> {
-    const entities = await this.repo.find({
-      where: { channel, status: ConnectionStatusEnum.connected },
-    });
+    // Excluye conexiones de marcas soft-deleted: los fanouts diarios seguían
+    // sincronizando cuentas de marcas eliminadas, escribiendo métricas que
+    // ninguna pantalla puede ver.
+    const entities = await this.repo
+      .createQueryBuilder('c')
+      .innerJoin('brand', 'b', 'b.id = c."brandId" AND b."deletedAt" IS NULL')
+      .where('c.channel = :channel', { channel })
+      .andWhere('c.status = :status', {
+        status: ConnectionStatusEnum.connected,
+      })
+      .andWhere('c."deletedAt" IS NULL')
+      .getMany();
     return entities.map(ConnectionMapper.toDomain);
   }
 

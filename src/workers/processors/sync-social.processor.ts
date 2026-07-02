@@ -1,8 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import Redis from 'ioredis';
+import { ChannelEnum } from '../../connections/domain/channel.enum';
 import { QUEUE_SYNC_SOCIAL } from '../../queues/queue-names.constants';
 import { ConnectionsRepository } from '../../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { MetricSnapshotsRepository } from '../../metrics/infrastructure/persistence/relational/repositories/metric-snapshots.repository';
@@ -17,11 +18,22 @@ import { MetricEnum } from '../../metrics/domain/metric.enum';
 import { Post } from '../../metrics/domain/post';
 
 interface SyncJobPayload {
-  brandId: number;
-  connectionId: number;
+  kind?: 'sync' | 'fanout';
+  window?: 'yesterday' | 'today';
+  brandId?: number;
+  connectionId?: number;
   dateFrom?: string;
   dateTo?: string;
 }
+
+const SOCIAL_CHANNELS: ChannelEnum[] = [
+  ChannelEnum.facebook_page,
+  ChannelEnum.instagram,
+  ChannelEnum.instagram_login,
+  ChannelEnum.tiktok,
+  ChannelEnum.linkedin,
+  ChannelEnum.youtube,
+];
 
 @Processor(QUEUE_SYNC_SOCIAL)
 export class SyncSocialProcessor extends WorkerHost {
@@ -35,13 +47,23 @@ export class SyncSocialProcessor extends WorkerHost {
     private readonly encryptionService: EncryptionService,
     @Inject(CHANNEL_PROVIDERS) private readonly providers: ChannelProvider[],
     private readonly config: ConfigService,
+    @InjectQueue(QUEUE_SYNC_SOCIAL) private readonly socialQueue: Queue,
   ) {
     super();
     this.redis = new Redis(this.config.getOrThrow<string>('REDIS_URL'));
   }
 
   async process(job: Job<SyncJobPayload>): Promise<void> {
+    if (job.data.kind === 'fanout') {
+      await this.runFanout(job.data.window ?? 'yesterday');
+      return;
+    }
+
     const { brandId, connectionId, dateFrom, dateTo } = job.data;
+    if (!connectionId) {
+      this.logger.warn(`sync-social job ${job.id} sin connectionId, skipping`);
+      return;
+    }
     const lockKey = `lock:sync:${connectionId}`;
 
     this.logger.log(`Processing sync-social job ${job.id} for connection ${connectionId}`);
@@ -180,6 +202,40 @@ export class SyncSocialProcessor extends WorkerHost {
     } finally {
       await this.redis.del(lockKey);
     }
+  }
+
+  // Encola un sync individual por cada conexión social viva de marcas activas.
+  // Sin dateFrom/dateTo: cada job usa su ventana default de 7 días, que cubre
+  // el engagement tardío de posts recientes. Idempotente vía upserts + jobId.
+  private async runFanout(window: 'yesterday' | 'today'): Promise<void> {
+    const connections = (
+      await Promise.all(
+        SOCIAL_CHANNELS.map((ch) =>
+          this.connectionsRepo.findConnectedByChannel(ch),
+        ),
+      )
+    ).flat();
+
+    if (!connections.length) {
+      this.logger.log('social fanout: no active connections');
+      return;
+    }
+
+    const d = new Date();
+    const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(
+      d.getUTCDate(),
+    ).padStart(2, '0')}`;
+
+    for (const conn of connections) {
+      await this.socialQueue.add(
+        'sync-connection',
+        { brandId: conn.brandId, connectionId: conn.id },
+        { jobId: `social-${conn.id}-${window}-${ymd}` },
+      );
+    }
+    this.logger.log(
+      `social fanout window=${window} encoladas=${connections.length}`,
+    );
   }
 
   private decryptTokens(connection: Connection): Connection {
