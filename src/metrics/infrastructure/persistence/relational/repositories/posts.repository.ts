@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Post } from '../../../../domain/post';
 import { PostEntity } from '../entities/post.entity';
 import { PostMapper } from '../mappers/post.mapper';
@@ -92,6 +92,22 @@ export class PostsRepository {
     return entities.map(PostMapper.toDomain);
   }
 
+  async findTopByBrandAndRange(
+    brandId: number,
+    from: Date,
+    to: Date,
+    limit: number,
+  ): Promise<Post[]> {
+    const entities = await this.repo
+      .createQueryBuilder('p')
+      .where('p.brandId = :brandId', { brandId })
+      .andWhere('p.publishedAt BETWEEN :from AND :to', { from, to })
+      .orderBy(`(p.metrics->>'engagement')::float`, 'DESC', 'NULLS LAST')
+      .take(limit)
+      .getMany();
+    return entities.map(PostMapper.toDomain);
+  }
+
   async findByBrandAndRange(
     brandId: number,
     from: Date,
@@ -99,7 +115,8 @@ export class PostsRepository {
     connectionId?: number,
     limit: number = 50,
   ): Promise<Post[]> {
-    const query = this.repo.createQueryBuilder('p')
+    const query = this.repo
+      .createQueryBuilder('p')
       .where('p.brandId = :brandId', { brandId })
       .andWhere('p.publishedAt BETWEEN :from AND :to', { from, to });
 

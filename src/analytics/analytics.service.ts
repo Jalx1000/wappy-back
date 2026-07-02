@@ -83,8 +83,7 @@ export class AnalyticsService {
           prevKpis[MetricEnum.total_interactions] ??
           0;
         const engBase = followers > 0 ? followers : reach;
-        const engagementRate =
-          engBase > 0 ? (interactions / engBase) * 100 : 0;
+        const engagementRate = engBase > 0 ? (interactions / engBase) * 100 : 0;
 
         // Headline delta for the card footer: first social metric with any
         // data in either period, falling back to ad spend for ads-only brands.
@@ -202,9 +201,17 @@ export class AnalyticsService {
           to,
         )
       : await this.snapshotsRepo.findByBrandAndRange(brandId, from, to);
+    // Top posts respect the requested window — returning all-time posts in a
+    // summary scoped by from/to showed publications outside the period.
     const topPosts = connectionId
-      ? await this.postsRepo.findTopByConnectionId(connectionId, brandId, 5)
-      : await this.postsRepo.findTopByBrandId(brandId, 5);
+      ? await this.postsRepo.findTopByConnectionAndRange(
+          connectionId,
+          brandId,
+          from,
+          to,
+          5,
+        )
+      : await this.postsRepo.findTopByBrandAndRange(brandId, from, to, 5);
 
     const kpis = aggregateSnapshotKpis(snapshots, SNAPSHOT_METRICS);
 
@@ -859,9 +866,7 @@ export class AnalyticsService {
     // Frequency = avg impressions per reached user. Derived from aggregates,
     // never summed (summing per-day frequency is meaningless).
     if (totals.reach > 0) {
-      totals.frequency = Number(
-        (totals.impressions / totals.reach).toFixed(2),
-      );
+      totals.frequency = Number((totals.impressions / totals.reach).toFixed(2));
     }
 
     return totals;
