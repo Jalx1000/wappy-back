@@ -319,6 +319,86 @@ export class ConnectionsService {
     const connection = await this.findOne(currentBrandId, id);
     if (connection.brandId === newBrandId) return connection;
 
+    await this.assertBrandIsActive(newBrandId);
+    await this.moveConnectionData(id, newBrandId);
+
+    const updated = await this.connectionsRepo.findById(id);
+    if (!updated) throw new NotFoundException(`Connection #${id} not found`);
+    return updated;
+  }
+
+  /**
+   * Connections whose brand was soft-deleted: still alive (cron keeps syncing
+   * them) but invisible in every brand-scoped screen. Surfaced so an admin can
+   * re-assign them to a real brand or discard them.
+   */
+  async findStranded(): Promise<
+    Array<{
+      id: number;
+      channel: string;
+      accountHandle: string;
+      accountId: string;
+      status: string;
+      lastSyncAt: Date | null;
+      previousBrandId: number;
+      previousBrandName: string;
+    }>
+  > {
+    return this.dataSource.query(`
+      SELECT c.id, c.channel, c."accountHandle", c."accountId", c.status,
+             c."lastSyncAt",
+             c."brandId" AS "previousBrandId", b.name AS "previousBrandName"
+      FROM connection c
+      JOIN brand b ON b.id = c."brandId"
+      WHERE c."deletedAt" IS NULL AND b."deletedAt" IS NOT NULL
+      ORDER BY b.id, c.channel, c."accountHandle"
+    `);
+  }
+
+  async adoptStranded(id: number, newBrandId: number): Promise<Connection> {
+    await this.assertIsStranded(id);
+    await this.assertBrandIsActive(newBrandId);
+    await this.moveConnectionData(id, newBrandId);
+
+    const updated = await this.connectionsRepo.findById(id);
+    if (!updated) throw new NotFoundException(`Connection #${id} not found`);
+    return updated;
+  }
+
+  async discardStranded(id: number): Promise<void> {
+    await this.assertIsStranded(id);
+    await this.connectionsRepo.softDelete(id);
+  }
+
+  private async assertIsStranded(id: number): Promise<void> {
+    const rows: { id: number }[] = await this.dataSource.query(
+      `SELECT c.id FROM connection c
+       JOIN brand b ON b.id = c."brandId"
+       WHERE c.id = $1 AND c."deletedAt" IS NULL AND b."deletedAt" IS NOT NULL`,
+      [id],
+    );
+    if (rows.length === 0) {
+      throw new NotFoundException(`Stranded connection #${id} not found`);
+    }
+  }
+
+  private async assertBrandIsActive(brandId: number): Promise<void> {
+    const rows: { id: number }[] = await this.dataSource.query(
+      `SELECT id FROM brand WHERE id = $1 AND "deletedAt" IS NULL`,
+      [brandId],
+    );
+    if (rows.length === 0) {
+      throw new NotFoundException(`Brand #${brandId} not found`);
+    }
+  }
+
+  // Moves the connection and ALL its historical data to another brand in one
+  // transaction. Table names: social posts live in social_post (camelCase
+  // columns); web/ads tables use snake_case.
+  private async moveConnectionData(
+    id: number,
+    newBrandId: number,
+  ): Promise<void> {
     await this.dataSource.transaction(async (em) => {
       await em.query('UPDATE connection SET "brandId" = $1 WHERE id = $2', [
         newBrandId,
@@ -329,7 +409,7 @@ export class ConnectionsService {
         [newBrandId, id],
       );
       await em.query(
-        'UPDATE post SET "brandId" = $1 WHERE "connectionId" = $2',
+        'UPDATE social_post SET "brandId" = $1 WHERE "connectionId" = $2',
         [newBrandId, id],
       );
       await em.query(
@@ -355,9 +435,5 @@ export class ConnectionsService {
         );
       }
     });
-
-    const updated = await this.connectionsRepo.findById(id);
-    if (!updated) throw new NotFoundException(`Connection #${id} not found`);
-    return updated;
   }
 }

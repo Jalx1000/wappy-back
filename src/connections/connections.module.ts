@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConnectionsController } from './connections.controller';
+import { StrandedConnectionsController } from './stranded-connections.controller';
 import { ConnectionsService } from './connections.service';
 import { ConnectionsRelationalPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { EncryptionModule } from '../encryption/encryption.module';
@@ -13,7 +14,7 @@ import { QueueModule } from '../queues/queue.module';
     BrandsModule,
     QueueModule,
   ],
-  controllers: [ConnectionsController],
+  controllers: [ConnectionsController, StrandedConnectionsController],
   providers: [ConnectionsService],
   exports: [ConnectionsService, ConnectionsRelationalPersistenceModule],
 })
