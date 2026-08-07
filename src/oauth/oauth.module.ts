@@ -9,6 +9,7 @@ import { OrphanAccountsModule } from '../connections/orphan/orphan-accounts.modu
 import { EncryptionModule } from '../encryption/encryption.module';
 import { MetaOAuthService } from '../channel-providers/providers/meta/meta-oauth.service';
 import { MetaAdsOAuthService } from '../channel-providers/providers/meta/meta-ads-oauth.service';
+import { MetaPageSubscriptionService } from '../channel-providers/providers/meta/meta-page-subscription.service';
 import { InstagramLoginOAuthService } from '../channel-providers/providers/instagram-login/instagram-login-oauth.service';
 import { TiktokOAuthService } from '../channel-providers/providers/tiktok/tiktok-oauth.service';
 import { TiktokAdsOAuthService } from '../channel-providers/providers/tiktok-ads/tiktok-ads-oauth.service';
@@ -32,6 +33,7 @@ import { ConnectionsModule } from '../connections/connections.module';
     OAuthDiscoveriesService,
     MetaOAuthService,
     MetaAdsOAuthService,
+    MetaPageSubscriptionService,
     InstagramLoginOAuthService,
     TiktokOAuthService,
     TiktokAdsOAuthService,

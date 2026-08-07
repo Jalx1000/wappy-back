@@ -16,6 +16,8 @@ import { OrphanAccount } from '../../connections/orphan/domain/orphan-account';
 import { EncryptionService } from '../../encryption/encryption.service';
 import { OAuthAccountResult } from '../oauth-provider.interface';
 import { DiscoveryAssignmentDto } from './dto/assign-discovery.dto';
+import { ChannelEnum } from '../../connections/domain/channel.enum';
+import { MetaPageSubscriptionService } from '../../channel-providers/providers/meta/meta-page-subscription.service';
 
 export interface AssignDiscoveryResult {
   connectionsCreated: number;
@@ -31,6 +33,7 @@ export class OAuthDiscoveriesService {
     private readonly connectionsService: ConnectionsService,
     private readonly orphansRepo: OrphanAccountsRepository,
     private readonly encryption: EncryptionService,
+    private readonly pageSubscription: MetaPageSubscriptionService,
   ) {}
 
   async getForUser(id: number, userId: number): Promise<OAuthDiscovery> {
@@ -93,6 +96,17 @@ export class OAuthDiscoveriesService {
           oauthResult,
         );
         connectionsCreated++;
+
+        // Facebook Pages: subscribe the app to the Page's Messenger webhooks so
+        // DMs start flowing to /webhooks/messenger without a manual dashboard
+        // step. Best-effort — never blocks the connection. `accessToken` here is
+        // the decrypted Page token (needs pages_manage_metadata).
+        if (acc.channel === ChannelEnum.facebook_page) {
+          await this.pageSubscription.subscribePage(
+            oauthResult.accountId,
+            oauthResult.accessToken,
+          );
+        }
       } else {
         const orphan = new OrphanAccount();
         orphan.channel = acc.channel;
