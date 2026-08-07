@@ -5,6 +5,8 @@ import { RelationalWhatsappConversationPersistenceModule } from '../whatsapp-con
 import { RelationalWhatsappMessagePersistenceModule } from '../whatsapp-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramConversationPersistenceModule } from '../instagram-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramMessagePersistenceModule } from '../instagram-messages/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalMessengerConversationPersistenceModule } from '../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalMessengerMessagePersistenceModule } from '../messenger-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { QueueModule } from '../queues/queue.module';
 import { TiktokWebhookController } from './tiktok-webhook.controller';
 import { TiktokWebhookService } from './tiktok-webhook.service';
@@ -14,6 +16,9 @@ import { WhatsappIngestService } from './whatsapp-ingest.service';
 import { InstagramWebhookController } from './instagram-webhook.controller';
 import { InstagramWebhookService } from './instagram-webhook.service';
 import { InstagramIngestService } from './instagram-ingest.service';
+import { MessengerWebhookController } from './messenger-webhook.controller';
+import { MessengerWebhookService } from './messenger-webhook.service';
+import { MessengerIngestService } from './messenger-ingest.service';
 
 @Module({
   imports: [
@@ -23,12 +28,15 @@ import { InstagramIngestService } from './instagram-ingest.service';
     RelationalWhatsappMessagePersistenceModule,
     RelationalInstagramConversationPersistenceModule,
     RelationalInstagramMessagePersistenceModule,
+    RelationalMessengerConversationPersistenceModule,
+    RelationalMessengerMessagePersistenceModule,
     QueueModule,
   ],
   controllers: [
     TiktokWebhookController,
     WhatsappWebhookController,
     InstagramWebhookController,
+    MessengerWebhookController,
   ],
   providers: [
     TiktokWebhookService,
@@ -36,6 +44,8 @@ import { InstagramIngestService } from './instagram-ingest.service';
     WhatsappIngestService,
     InstagramWebhookService,
     InstagramIngestService,
+    MessengerWebhookService,
+    MessengerIngestService,
   ],
 })
 export class WebhooksModule {}

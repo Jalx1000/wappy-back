@@ -6,8 +6,11 @@ import { WhatsappConversationRepository } from '../whatsapp-conversations/infras
 import { WhatsappMessageRepository } from '../whatsapp-messages/infrastructure/persistence/whatsapp-message.repository';
 import { InstagramConversationRepository } from '../instagram-conversations/infrastructure/persistence/instagram-conversation.repository';
 import { InstagramMessageRepository } from '../instagram-messages/infrastructure/persistence/instagram-message.repository';
+import { MessengerConversationRepository } from '../messenger-conversations/infrastructure/persistence/messenger-conversation.repository';
+import { MessengerMessageRepository } from '../messenger-messages/infrastructure/persistence/messenger-message.repository';
 import { WhatsappSendService } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
+import { MessengerSendService } from './messenger-send.service';
 
 const CONNECTION = {
   id: 5,
@@ -62,15 +65,32 @@ const makeService = () => {
     sendText: jest.fn().mockResolvedValue('ig.mid.sent'),
   } as unknown as jest.Mocked<InstagramSendService>;
 
+  const messengerConversationsRepo = {
+    findById: jest.fn(),
+    update: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<MessengerConversationRepository>;
+
+  const messengerMessagesRepo = {
+    create: jest.fn(),
+    findByConversationId: jest.fn(),
+  } as unknown as jest.Mocked<MessengerMessageRepository>;
+
+  const messengerSend = {
+    sendText: jest.fn().mockResolvedValue('fb.mid.sent'),
+  } as unknown as jest.Mocked<MessengerSendService>;
+
   const service = new SocialInboxService(
     connectionsRepo,
     conversationsRepo,
     messagesRepo,
     igConversationsRepo,
     igMessagesRepo,
+    messengerConversationsRepo,
+    messengerMessagesRepo,
     contactsService,
     whatsappSend,
     instagramSend,
+    messengerSend,
   );
   return {
     service,
@@ -79,8 +99,11 @@ const makeService = () => {
     messagesRepo,
     igConversationsRepo,
     igMessagesRepo,
+    messengerConversationsRepo,
+    messengerMessagesRepo,
     whatsappSend,
     instagramSend,
+    messengerSend,
   };
 };
 
@@ -155,6 +178,50 @@ describe('SocialInboxService.sendMessage', () => {
       }),
     );
     expect(igConversationsRepo.update).toHaveBeenCalled();
+    expect(result.direction).toBe('out');
+  });
+
+  it('should send via Messenger and mirror the outbound message', async () => {
+    const {
+      service,
+      messengerConversationsRepo,
+      messengerMessagesRepo,
+      messengerSend,
+    } = makeService();
+    messengerConversationsRepo.findById.mockResolvedValue({
+      id: 'fbconv1',
+      connectionId: 5,
+      psid: 'PSID123',
+    } as never);
+    messengerMessagesRepo.create.mockResolvedValue({
+      id: 'fbm1',
+      direction: 'out',
+      messageType: 'text',
+      content: 'hola',
+      sentAt: new Date(),
+    } as never);
+
+    const result = await service.sendMessage(
+      7,
+      'fbconv1',
+      'facebook_page',
+      'hola',
+    );
+
+    expect(messengerSend.sendText).toHaveBeenCalledWith(
+      { id: 5, brandId: 7, accountId: 'PNID', accountHandle: '+1' },
+      'PSID123',
+      'hola',
+    );
+    expect(messengerMessagesRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalId: 'fb.mid.sent',
+        direction: 'out',
+        source: 'live',
+        content: 'hola',
+      }),
+    );
+    expect(messengerConversationsRepo.update).toHaveBeenCalled();
     expect(result.direction).toBe('out');
   });
 

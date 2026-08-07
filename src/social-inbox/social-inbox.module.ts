@@ -7,11 +7,14 @@ import { RelationalWhatsappConversationPersistenceModule } from '../whatsapp-con
 import { RelationalWhatsappMessagePersistenceModule } from '../whatsapp-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramConversationPersistenceModule } from '../instagram-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramMessagePersistenceModule } from '../instagram-messages/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalMessengerConversationPersistenceModule } from '../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalMessengerMessagePersistenceModule } from '../messenger-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { SocialInboxController } from './social-inbox.controller';
 import { SocialInboxService } from './social-inbox.service';
 import { WhatsappSendService } from './whatsapp-send.service';
 import { WhatsappMediaService } from './whatsapp-media.service';
 import { InstagramSendService } from './instagram-send.service';
+import { MessengerSendService } from './messenger-send.service';
 
 @Module({
   imports: [
@@ -23,6 +26,8 @@ import { InstagramSendService } from './instagram-send.service';
     RelationalWhatsappMessagePersistenceModule,
     RelationalInstagramConversationPersistenceModule,
     RelationalInstagramMessagePersistenceModule,
+    RelationalMessengerConversationPersistenceModule,
+    RelationalMessengerMessagePersistenceModule,
   ],
   controllers: [SocialInboxController],
   providers: [
@@ -30,6 +35,7 @@ import { InstagramSendService } from './instagram-send.service';
     WhatsappSendService,
     WhatsappMediaService,
     InstagramSendService,
+    MessengerSendService,
   ],
 })
 export class SocialInboxModule {}
