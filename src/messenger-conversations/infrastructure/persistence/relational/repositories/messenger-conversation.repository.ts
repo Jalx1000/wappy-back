@@ -8,9 +8,7 @@ import { MessengerConversationRepository } from '../../messenger-conversation.re
 import { MessengerConversationMapper } from '../mappers/messenger-conversation.mapper';
 
 @Injectable()
-export class MessengerConversationRelationalRepository
-  implements MessengerConversationRepository
-{
+export class MessengerConversationRelationalRepository implements MessengerConversationRepository {
   constructor(
     @InjectRepository(MessengerConversationEntity)
     private readonly repo: Repository<MessengerConversationEntity>,

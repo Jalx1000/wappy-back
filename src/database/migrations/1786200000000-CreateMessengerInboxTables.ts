@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateMessengerInboxTables1786200000000
-  implements MigrationInterface
-{
+export class CreateMessengerInboxTables1786200000000 implements MigrationInterface {
   name = 'CreateMessengerInboxTables1786200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

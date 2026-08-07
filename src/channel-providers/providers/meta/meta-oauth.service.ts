@@ -19,6 +19,11 @@ const SCOPES = [
   // Needed to enumerate pages owned/managed via Business Managers (agency case);
   // /me/accounts alone only returns pages with a direct classic role.
   'business_management',
+  // Messenger inbox: send/receive Page DMs and subscribe the Page to the app's
+  // webhooks (POST /{page-id}/subscribed_apps). pages_messaging needs Advanced
+  // Access (App Review) for production; testers/admins work in dev mode.
+  'pages_messaging',
+  'pages_manage_metadata',
 ];
 
 const PAGE_FIELDS =
