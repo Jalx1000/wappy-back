@@ -73,6 +73,12 @@ export class MessengerWebhookService {
       return;
     }
 
+    // Debug aid: set META_WEBHOOK_LOG_RAW=true to dump the exact JSON Meta sends
+    // (to design field extraction). Off by default — raw payloads carry PII.
+    if (this.config.get<string>('META_WEBHOOK_LOG_RAW') === 'true') {
+      this.logger.log(`Messenger raw event: ${rawBody?.toString('utf8')}`);
+    }
+
     let payload: MsgrWebhookPayload;
     try {
       payload = JSON.parse(rawBody!.toString('utf8'));
