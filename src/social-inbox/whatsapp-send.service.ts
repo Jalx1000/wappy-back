@@ -4,6 +4,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { Connection } from '../connections/domain/connection';
 import { EncryptionService } from '../encryption/encryption.service';
+import { metaGraphError } from './meta-graph-error';
 
 export type WhatsappMediaType =
   | 'image'
@@ -106,7 +107,7 @@ export class WhatsappSendService {
       }
       return data.id;
     } catch (err) {
-      throw this.metaError(err, 'Media upload failed');
+      throw metaGraphError(this.logger, err, 'Media upload failed');
     }
   }
 
@@ -146,21 +147,7 @@ export class WhatsappSendService {
       }
       return wamid;
     } catch (err) {
-      throw this.metaError(err, 'WhatsApp send failed');
+      throw metaGraphError(this.logger, err, 'WhatsApp send failed');
     }
-  }
-
-  private metaError(err: unknown, fallback: string): BadGatewayException {
-    if (err instanceof BadGatewayException) return err;
-    if (axios.isAxiosError(err)) {
-      const message =
-        (err.response?.data as { error?: { message?: string } })?.error
-          ?.message ??
-        err.message ??
-        fallback;
-      this.logger.warn(`WhatsApp send failed: ${message}`);
-      return new BadGatewayException(message);
-    }
-    return new BadGatewayException(fallback);
   }
 }

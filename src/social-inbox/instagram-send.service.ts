@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Connection } from '../connections/domain/connection';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { EncryptionService } from '../encryption/encryption.service';
+import { metaGraphError } from './meta-graph-error';
 
 // Sends Instagram Direct messages through the Graph API. Two transports:
 //  - `instagram` (IG business account linked to a Facebook Page): graph.facebook.com
@@ -39,14 +40,22 @@ export class InstagramSendService {
     recipientIgsid: string,
     body: string,
   ): Promise<string> {
+    // `messaging_type` is a Messenger-Platform field understood only by the
+    // Facebook-Page transport (graph.facebook.com). The Instagram-Login
+    // transport (graph.instagram.com) rejects the extra field, so we only add
+    // it for the page-linked `instagram` channel.
+    const payload: Record<string, unknown> = {
+      recipient: { id: recipientIgsid },
+      message: { text: body },
+    };
+    if (connection.channel !== ChannelEnum.instagram_login) {
+      payload.messaging_type = 'RESPONSE';
+    }
+
     try {
       const { data } = await axios.post<{ message_id?: string }>(
         `${this.graphUrl(connection)}/${connection.accountId}/messages`,
-        {
-          recipient: { id: recipientIgsid },
-          messaging_type: 'RESPONSE',
-          message: { text: body },
-        },
+        payload,
         { headers: { Authorization: `Bearer ${this.token(connection)}` } },
       );
       const mid = data?.message_id;
@@ -55,21 +64,7 @@ export class InstagramSendService {
       }
       return mid;
     } catch (err) {
-      throw this.metaError(err, 'Instagram send failed');
+      throw metaGraphError(this.logger, err, 'Instagram send failed');
     }
-  }
-
-  private metaError(err: unknown, fallback: string): BadGatewayException {
-    if (err instanceof BadGatewayException) return err;
-    if (axios.isAxiosError(err)) {
-      const message =
-        (err.response?.data as { error?: { message?: string } })?.error
-          ?.message ??
-        err.message ??
-        fallback;
-      this.logger.warn(`Instagram send failed: ${message}`);
-      return new BadGatewayException(message);
-    }
-    return new BadGatewayException(fallback);
   }
 }
