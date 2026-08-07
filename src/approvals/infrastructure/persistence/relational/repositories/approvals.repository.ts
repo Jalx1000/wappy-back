@@ -18,8 +18,12 @@ export class ApprovalsRepository {
     return entity ? this.mapper.toDomain(entity) : null;
   }
 
-  async findByBrandAndStatus(brandId: number, status?: string): Promise<Approval[]> {
-    const query = this.repo.createQueryBuilder('a')
+  async findByBrandAndStatus(
+    brandId: number,
+    status?: string,
+  ): Promise<Approval[]> {
+    const query = this.repo
+      .createQueryBuilder('a')
       .where('a.brandId = :brandId', { brandId });
 
     if (status) {

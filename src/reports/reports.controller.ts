@@ -9,12 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
 import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
@@ -43,10 +38,7 @@ export class ReportsController {
 
   @Get(':id')
   @ApiParam({ name: 'id', type: Number })
-  findOne(
-    @CurrentBrand() brand: Brand,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  findOne(@CurrentBrand() brand: Brand, @Param('id', ParseIntPipe) id: number) {
     return this.reportsService.findOne(brand.id, id);
   }
 }

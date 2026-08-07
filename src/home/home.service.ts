@@ -12,7 +12,11 @@ export class HomeService {
     private readonly configService: ConfigService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {
-    this.redis = new Redis(this.configService.getOrThrow<string>('REDIS_URL'));
+    this.redis = new Redis(
+      // flat env key, not part of the typed config namespace
+      // eslint-disable-next-line no-restricted-syntax
+      this.configService.getOrThrow<string>('REDIS_URL'),
+    );
   }
 
   appInfo() {

@@ -23,7 +23,7 @@ export class UserSeedService {
       const password = await bcrypt.hash('secret', salt);
 
       const data = new this.model({
-        email: 'admin@example.com',
+        email: 'hola@wappy.dev',
         password: password,
         firstName: 'Super',
         lastName: 'Admin',

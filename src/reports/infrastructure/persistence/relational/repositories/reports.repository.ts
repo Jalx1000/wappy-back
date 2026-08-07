@@ -32,7 +32,10 @@ export class ReportsRepository {
     return entity ? ReportMapper.toDomain(entity) : null;
   }
 
-  async findByBrandIdAndId(brandId: number, id: number): Promise<Report | null> {
+  async findByBrandIdAndId(
+    brandId: number,
+    id: number,
+  ): Promise<Report | null> {
     const entity = await this.repo.findOne({ where: { brandId, id } });
     return entity ? ReportMapper.toDomain(entity) : null;
   }

@@ -61,6 +61,12 @@ export class ApprovalsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReviewApprovalDto,
   ) {
-    return this.approvalsService.review(id, brand.id, Number(user.id), user.role as any, dto);
+    return this.approvalsService.review(
+      id,
+      brand.id,
+      Number(user.id),
+      user.role as any,
+      dto,
+    );
   }
 }

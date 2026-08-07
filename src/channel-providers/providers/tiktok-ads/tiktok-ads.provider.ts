@@ -106,7 +106,9 @@ export class TiktokAdsProvider implements ChannelProvider {
       dateRange.to,
       30,
     )) {
-      report.push(...(await this.fetchReport(advertiserId, wFrom, wTo, headers)));
+      report.push(
+        ...(await this.fetchReport(advertiserId, wFrom, wTo, headers)),
+      );
     }
 
     const campaignMap = new Map<string, AdCampaign>();
@@ -159,6 +161,8 @@ export class TiktokAdsProvider implements ChannelProvider {
     return { campaigns: Array.from(campaignMap.values()), snapshots };
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -166,6 +170,8 @@ export class TiktokAdsProvider implements ChannelProvider {
     return [];
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async refreshToken(_connection: Connection): Promise<TokenData> {
     throw new Error(
       'TikTok Ads tokens cannot be silently refreshed — user must reauth',

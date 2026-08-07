@@ -123,9 +123,7 @@ export class LinkedinAdsProvider implements ChannelProvider {
 
       const d = row.dateRange?.start;
       if (!d) continue;
-      const date = new Date(
-        Date.UTC(d.year, (d.month ?? 1) - 1, d.day ?? 1),
-      );
+      const date = new Date(Date.UTC(d.year, (d.month ?? 1) - 1, d.day ?? 1));
 
       const spend = Number(row.costInUsd ?? 0);
       const impressions = Number(row.impressions ?? 0);
@@ -150,6 +148,8 @@ export class LinkedinAdsProvider implements ChannelProvider {
     return { campaigns: Array.from(campaignMap.values()), snapshots };
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -157,6 +157,8 @@ export class LinkedinAdsProvider implements ChannelProvider {
     return [];
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async refreshToken(_connection: Connection): Promise<TokenData> {
     throw new Error('LinkedIn Ads tokens require user reauth');
   }

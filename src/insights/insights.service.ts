@@ -13,10 +13,14 @@ export class InsightsService {
     @InjectQueue(QUEUE_INSIGHTS) private readonly insightsQueue: Queue,
   ) {}
 
-  async generate(brandId: number, dto: CreateInsightDto): Promise<{ jobId: string | undefined }> {
+  async generate(
+    brandId: number,
+    dto: CreateInsightDto,
+  ): Promise<{ jobId: string | undefined }> {
     const now = new Date();
     const period =
-      dto.period ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      dto.period ??
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const job = await this.insightsQueue.add(
       'generate-insight',

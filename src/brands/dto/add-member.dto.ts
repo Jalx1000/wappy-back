@@ -7,7 +7,10 @@ export class AddMemberDto {
   @IsNumber()
   userId: number;
 
-  @ApiPropertyOptional({ enum: BrandMemberRoleEnum, default: BrandMemberRoleEnum.member })
+  @ApiPropertyOptional({
+    enum: BrandMemberRoleEnum,
+    default: BrandMemberRoleEnum.member,
+  })
   @IsOptional()
   @IsEnum(BrandMemberRoleEnum)
   role?: BrandMemberRoleEnum;

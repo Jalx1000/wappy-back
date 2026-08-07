@@ -37,8 +37,11 @@ lerna-debug.log*
 .data
 /files
 .env
+.env.railway
 /ormconfig.json
 .codegpt
+
+/Revolut Support — Design System (Copy)-handoff.zip
 
 # Claude Code runtime state
 .claude/scheduled_tasks.lock

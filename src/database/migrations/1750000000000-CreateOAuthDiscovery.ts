@@ -1,9 +1,4 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableIndex,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class CreateOAuthDiscovery1750000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

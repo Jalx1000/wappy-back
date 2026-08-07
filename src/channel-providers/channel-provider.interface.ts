@@ -1,7 +1,5 @@
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
-import { MetricSnapshot } from '../metrics/domain/metric-snapshot';
-import { Post } from '../metrics/domain/post';
 
 export interface DateRange {
   from: Date;
@@ -39,9 +37,6 @@ export interface ChannelProvider {
     connection: Connection,
     dateRange: DateRange,
   ): Promise<MetricRow[]>;
-  fetchPosts(
-    connection: Connection,
-    dateRange: DateRange,
-  ): Promise<PostData[]>;
+  fetchPosts(connection: Connection, dateRange: DateRange): Promise<PostData[]>;
   refreshToken(connection: Connection): Promise<TokenData>;
 }

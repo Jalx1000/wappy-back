@@ -37,7 +37,9 @@ export class LinkedinOAuthService implements ChannelOAuthService {
 
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
     const clientId = this.config.getOrThrow<string>('LINKEDIN_CLIENT_ID');
-    const clientSecret = this.config.getOrThrow<string>('LINKEDIN_CLIENT_SECRET');
+    const clientSecret = this.config.getOrThrow<string>(
+      'LINKEDIN_CLIENT_SECRET',
+    );
     const redirectUri = this.config.getOrThrow<string>('LINKEDIN_REDIRECT_URI');
 
     // 1) Exchange code → access_token

@@ -70,9 +70,7 @@ export class GoogleAdsOAuthService implements ChannelOAuthService {
       },
     );
     const resourceNames = listResp.resourceNames ?? [];
-    const customerIds = resourceNames.map((rn) =>
-      rn.replace('customers/', ''),
-    );
+    const customerIds = resourceNames.map((rn) => rn.replace('customers/', ''));
 
     if (!customerIds.length) {
       this.logger.warn(

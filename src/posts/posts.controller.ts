@@ -37,12 +37,20 @@ export class PostsController {
     @Query('connectionId') connectionId?: string,
     @Query('limit') limit?: string,
   ) {
-    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const fromDate = from
+      ? new Date(from)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const toDate = to ? new Date(to) : new Date();
     const connId = connectionId ? parseInt(connectionId, 10) : undefined;
     const pageLimit = limit ? parseInt(limit, 10) : 50;
 
-    return this.postsService.getPostsByBrand(brand.id, fromDate, toDate, connId, pageLimit);
+    return this.postsService.getPostsByBrand(
+      brand.id,
+      fromDate,
+      toDate,
+      connId,
+      pageLimit,
+    );
   }
 
   @Get(':id')

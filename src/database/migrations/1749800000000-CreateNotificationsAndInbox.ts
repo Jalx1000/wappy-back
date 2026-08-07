@@ -1,4 +1,10 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
 export class CreateNotificationsAndInbox1749800000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

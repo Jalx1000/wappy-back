@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BrandMembership, BrandMemberRoleEnum } from '../../../../domain/brand-membership';
+import {
+  BrandMembership,
+  BrandMemberRoleEnum,
+} from '../../../../domain/brand-membership';
 import { BrandMembershipEntity } from '../entities/brand-membership.entity';
 import { BrandMembershipMapper } from '../mappers/brand-membership.mapper';
 import { NullableType } from '../../../../../utils/types/nullable.type';
@@ -38,12 +41,19 @@ export class BrandMembershipsRepository {
     return entities.map(BrandMembershipMapper.toDomain);
   }
 
-  async findOne(userId: number, brandId: number): Promise<NullableType<BrandMembership>> {
+  async findOne(
+    userId: number,
+    brandId: number,
+  ): Promise<NullableType<BrandMembership>> {
     const entity = await this.repo.findOne({ where: { userId, brandId } });
     return entity ? BrandMembershipMapper.toDomain(entity) : null;
   }
 
-  async upsert(userId: number, brandId: number, role: BrandMemberRoleEnum): Promise<BrandMembership> {
+  async upsert(
+    userId: number,
+    brandId: number,
+    role: BrandMemberRoleEnum,
+  ): Promise<BrandMembership> {
     const existing = await this.repo.findOne({ where: { userId, brandId } });
     if (existing) {
       await this.repo.update(existing.id, { role });

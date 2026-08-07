@@ -23,7 +23,11 @@ export class ReportEntity extends EntityRelationalHelper {
   @Column({ type: String, enum: ReportTypeEnum })
   type: ReportTypeEnum;
 
-  @Column({ type: String, enum: ReportStatusEnum, default: ReportStatusEnum.pending })
+  @Column({
+    type: String,
+    enum: ReportStatusEnum,
+    default: ReportStatusEnum.pending,
+  })
   status: ReportStatusEnum;
 
   @Column({ type: 'jsonb' })

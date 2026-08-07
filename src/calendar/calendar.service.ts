@@ -24,7 +24,10 @@ export class CalendarService {
     return item;
   }
 
-  async create(brandId: number, dto: CreateCalendarItemDto): Promise<CalendarItem> {
+  async create(
+    brandId: number,
+    dto: CreateCalendarItemDto,
+  ): Promise<CalendarItem> {
     const item = new CalendarItem();
     item.brandId = brandId;
     item.title = dto.title;

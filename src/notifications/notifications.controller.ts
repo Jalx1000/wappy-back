@@ -36,17 +36,13 @@ export class NotificationsController {
   }
 
   @Patch(':id/read')
-  async markAsRead(
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  async markAsRead(@Param('id', ParseIntPipe) id: number) {
     await this.notificationsService.markAsRead(id);
     return { success: true };
   }
 
   @Patch('read-all')
-  async markAllAsRead(
-    @CurrentUser() user: JwtPayloadType,
-  ) {
+  async markAllAsRead(@CurrentUser() user: JwtPayloadType) {
     await this.notificationsService.markAllAsRead(Number(user.id));
     return { success: true };
   }

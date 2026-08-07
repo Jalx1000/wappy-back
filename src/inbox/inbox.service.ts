@@ -43,6 +43,8 @@ export class InboxService {
   }
 
   private verifyMetaSignature(payload: any, signature: string): boolean {
+    // flat env key, not part of the typed config namespace
+    // eslint-disable-next-line no-restricted-syntax
     const secret = this.configService.get<string>('META_WEBHOOK_SECRET');
     if (!secret) {
       this.logger.warn('META_WEBHOOK_SECRET not configured');
@@ -50,10 +52,7 @@ export class InboxService {
     }
 
     const body = JSON.stringify(payload);
-    const hash = crypto
-      .createHmac('sha256', secret)
-      .update(body)
-      .digest('hex');
+    const hash = crypto.createHmac('sha256', secret).update(body).digest('hex');
 
     return hash === signature;
   }

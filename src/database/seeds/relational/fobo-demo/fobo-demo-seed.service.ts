@@ -17,7 +17,11 @@ import { BrandMemberRoleEnum } from '../../../../brands/domain/brand-membership'
 import { EncryptionService } from '../../../../encryption/encryption.service';
 
 const BRANDS = [
-  { name: 'Sofía Café', slug: 'sofia-cafe', description: 'Cafetería artesanal boliviana' },
+  {
+    name: 'Sofía Café',
+    slug: 'sofia-cafe',
+    description: 'Cafetería artesanal boliviana',
+  },
   { name: 'TiendaBol', slug: 'tiendabol', description: 'E-commerce boliviano' },
   { name: 'BolFin', slug: 'bolfin', description: 'Fintech boliviana' },
 ];
@@ -98,7 +102,9 @@ export class FoboDemoSeedService {
     return result;
   }
 
-  private async seedConnections(brand: BrandEntity): Promise<ConnectionEntity[]> {
+  private async seedConnections(
+    brand: BrandEntity,
+  ): Promise<ConnectionEntity[]> {
     const channels = [ChannelEnum.instagram, ChannelEnum.facebook_page];
     const result: ConnectionEntity[] = [];
 
@@ -118,7 +124,9 @@ export class FoboDemoSeedService {
           accountHandle: `@${brand.slug}_${channel}`,
           accountId: `mock_${brand.slug}_${channel}_001`,
           accessToken: this.encryptionService.encrypt('mock_access_token_dev'),
-          refreshToken: this.encryptionService.encrypt('mock_refresh_token_dev'),
+          refreshToken: this.encryptionService.encrypt(
+            'mock_refresh_token_dev',
+          ),
           expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
           status: ConnectionStatusEnum.connected,
           scopes: ['read_insights', 'pages_read_engagement'],
@@ -130,8 +138,13 @@ export class FoboDemoSeedService {
     return result;
   }
 
-  private async seedMetrics(connectionId: number, brandId: number): Promise<void> {
-    const existing = await this.snapshotsRepo.count({ where: { connectionId } });
+  private async seedMetrics(
+    connectionId: number,
+    brandId: number,
+  ): Promise<void> {
+    const existing = await this.snapshotsRepo.count({
+      where: { connectionId },
+    });
     if (existing > 0) return;
 
     const today = new Date();
@@ -169,7 +182,10 @@ export class FoboDemoSeedService {
         mkSnap(MetricEnum.reach, reach),
         mkSnap(MetricEnum.impressions, impressions),
         mkSnap(MetricEnum.engagement, engagement),
-        mkSnap(MetricEnum.engagement_rate, Math.round(engagementRate * 10000) / 100),
+        mkSnap(
+          MetricEnum.engagement_rate,
+          Math.round(engagementRate * 10000) / 100,
+        ),
         mkSnap(MetricEnum.likes, likes),
         mkSnap(MetricEnum.comments, comments),
         mkSnap(MetricEnum.shares, shares),
@@ -177,10 +193,15 @@ export class FoboDemoSeedService {
     }
 
     await this.snapshotsRepo.save(snapshots);
-    this.logger.log(`Seeded ${snapshots.length} snapshots for connection ${connectionId}`);
+    this.logger.log(
+      `Seeded ${snapshots.length} snapshots for connection ${connectionId}`,
+    );
   }
 
-  private async seedPosts(connectionId: number, brandId: number): Promise<void> {
+  private async seedPosts(
+    connectionId: number,
+    brandId: number,
+  ): Promise<void> {
     const existing = await this.postsRepo.count({ where: { connectionId } });
     if (existing > 0) return;
 
@@ -222,6 +243,8 @@ export class FoboDemoSeedService {
     }
 
     await this.postsRepo.save(posts);
-    this.logger.log(`Seeded ${posts.length} posts for connection ${connectionId}`);
+    this.logger.log(
+      `Seeded ${posts.length} posts for connection ${connectionId}`,
+    );
   }
 }

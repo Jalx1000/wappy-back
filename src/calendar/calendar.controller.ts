@@ -35,9 +35,17 @@ export class CalendarController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const toDate = to ? new Date(to) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-    return this.calendarService.getByBrandAndDateRange(brand.id, fromDate, toDate);
+    const fromDate = from
+      ? new Date(from)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const toDate = to
+      ? new Date(to)
+      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    return this.calendarService.getByBrandAndDateRange(
+      brand.id,
+      fromDate,
+      toDate,
+    );
   }
 
   @Get(':id')

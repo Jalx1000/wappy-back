@@ -17,7 +17,9 @@ export class CreateReportScheduleDto {
   @IsEnum(ReportFrequencyEnum)
   frequency: ReportFrequencyEnum;
 
-  @ApiPropertyOptional({ description: '0 (Sun) – 6 (Sat), for weekly/biweekly' })
+  @ApiPropertyOptional({
+    description: '0 (Sun) – 6 (Sat), for weekly/biweekly',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

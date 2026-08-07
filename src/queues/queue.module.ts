@@ -11,6 +11,7 @@ import {
   QUEUE_SYNC_SOCIAL,
   QUEUE_SYNC_WEB,
   QUEUE_TOKENS,
+  QUEUE_WHATSAPP_SYNC,
 } from './queue-names.constants';
 
 @Module({
@@ -19,6 +20,8 @@ import {
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         connection: {
+          // flat env key, not part of the typed config namespace
+          // eslint-disable-next-line no-restricted-syntax
           url: configService.get<string>('WORKER_HOST', 'redis://redis:6379/1'),
         },
         defaultJobOptions: {
@@ -40,6 +43,7 @@ import {
       { name: QUEUE_MENTIONS },
       { name: QUEUE_INSIGHTS },
       { name: QUEUE_PUBLISH },
+      { name: QUEUE_WHATSAPP_SYNC },
     ),
   ],
   exports: [BullModule],

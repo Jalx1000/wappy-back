@@ -49,9 +49,7 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
     const appId = this.config.getOrThrow<string>('META_APP_ID');
     const appSecret = this.config.getOrThrow<string>('META_APP_SECRET');
-    const redirectUri = this.config.getOrThrow<string>(
-      'META_ADS_REDIRECT_URI',
-    );
+    const redirectUri = this.config.getOrThrow<string>('META_ADS_REDIRECT_URI');
 
     const shortToken = await this.exchangeShort(
       appId,
@@ -103,7 +101,9 @@ export class MetaAdsOAuthService implements ChannelOAuthService {
       `${this.graphUrl}/oauth/access_token?${params.toString()}`,
     );
     if (data['error']) {
-      throw new Error(`Meta Ads token failed: ${JSON.stringify(data['error'])}`);
+      throw new Error(
+        `Meta Ads token failed: ${JSON.stringify(data['error'])}`,
+      );
     }
     return data['access_token'] as string;
   }

@@ -162,6 +162,8 @@ export class Ga4Provider implements ChannelProvider {
     return rows;
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,

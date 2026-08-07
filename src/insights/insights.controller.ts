@@ -7,11 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
 import { CurrentBrand } from '../brands/decorators/current-brand.decorator';

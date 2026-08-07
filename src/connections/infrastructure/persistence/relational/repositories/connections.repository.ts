@@ -61,7 +61,9 @@ export class ConnectionsRepository {
     channel: ChannelEnum,
     accountId: string,
   ): Promise<NullableType<Connection>> {
-    const entity = await this.repo.findOne({ where: { brandId, channel, accountId } });
+    const entity = await this.repo.findOne({
+      where: { brandId, channel, accountId },
+    });
     return entity ? ConnectionMapper.toDomain(entity) : null;
   }
 

@@ -34,7 +34,10 @@ export class BrandsRepository {
   // Resolve a brand even if it was archived (soft-deleted) — used by reports so
   // the document always shows the real brand name.
   async findByIdIncludingDeleted(id: number): Promise<NullableType<Brand>> {
-    const entity = await this.repo.findOne({ where: { id }, withDeleted: true });
+    const entity = await this.repo.findOne({
+      where: { id },
+      withDeleted: true,
+    });
     return entity ? BrandMapper.toDomain(entity) : null;
   }
 

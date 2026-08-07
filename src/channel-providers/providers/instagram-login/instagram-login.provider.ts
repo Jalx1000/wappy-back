@@ -108,7 +108,9 @@ export class InstagramLoginProvider implements ChannelProvider {
       });
       const { data: profile } = await axios.get<{
         followers_count?: number;
-      }>(`${this.graphUrl}/${connection.accountId}?${profileParams.toString()}`);
+      }>(
+        `${this.graphUrl}/${connection.accountId}?${profileParams.toString()}`,
+      );
       if (profile.followers_count !== undefined) {
         rows.push({
           connectionId: connection.id,

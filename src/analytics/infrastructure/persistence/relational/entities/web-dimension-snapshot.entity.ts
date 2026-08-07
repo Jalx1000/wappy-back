@@ -9,7 +9,9 @@ import {
 import { WebDimensionEnum } from '../../../../domain/web-dimension.enum';
 
 @Entity('web_dimension_snapshot')
-@Index(['connectionId', 'date', 'dimension', 'dimensionValue'], { unique: true })
+@Index(['connectionId', 'date', 'dimension', 'dimensionValue'], {
+  unique: true,
+})
 @Index(['brandId', 'date', 'dimension'])
 export class WebDimensionSnapshotEntity {
   @PrimaryGeneratedColumn()

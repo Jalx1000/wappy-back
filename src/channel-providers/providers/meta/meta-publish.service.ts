@@ -102,7 +102,9 @@ export class MetaPublishService {
       );
       if (data.status_code === 'FINISHED') return;
       if (data.status_code === 'ERROR') {
-        throw new Error(`Instagram container failed: ${data.status ?? 'ERROR'}`);
+        throw new Error(
+          `Instagram container failed: ${data.status ?? 'ERROR'}`,
+        );
       }
       await this.sleep(IG_POLL_INTERVAL_MS);
     }

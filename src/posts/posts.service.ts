@@ -13,7 +13,13 @@ export class PostsService {
     connectionId?: number,
     limit: number = 50,
   ) {
-    return this.postsRepo.findByBrandAndRange(brandId, from, to, connectionId, limit);
+    return this.postsRepo.findByBrandAndRange(
+      brandId,
+      from,
+      to,
+      connectionId,
+      limit,
+    );
   }
 
   async getPostById(id: number, brandId: number) {

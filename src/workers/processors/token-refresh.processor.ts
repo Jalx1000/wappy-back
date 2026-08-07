@@ -52,11 +52,11 @@ export class TokenRefreshProcessor extends WorkerHost {
   private async refreshExpiring(): Promise<void> {
     const cutoff = new Date(Date.now() + REFRESH_LOOKAHEAD_MS);
     const connections = await this.connectionsRepo.findExpiring(cutoff);
-    this.logger.log(`Found ${connections.length} connection(s) expiring before ${cutoff.toISOString()}`);
-
-    await Promise.allSettled(
-      connections.map((c) => this.refreshOne(c.id)),
+    this.logger.log(
+      `Found ${connections.length} connection(s) expiring before ${cutoff.toISOString()}`,
     );
+
+    await Promise.allSettled(connections.map((c) => this.refreshOne(c.id)));
   }
 
   private async refreshOne(connectionId: number): Promise<void> {
@@ -66,9 +66,13 @@ export class TokenRefreshProcessor extends WorkerHost {
       return;
     }
 
-    const provider = this.providers.find((p) => p.channel === connection.channel);
+    const provider = this.providers.find(
+      (p) => p.channel === connection.channel,
+    );
     if (!provider) {
-      this.logger.warn(`No provider for channel ${connection.channel}, skipping token refresh`);
+      this.logger.warn(
+        `No provider for channel ${connection.channel}, skipping token refresh`,
+      );
       return;
     }
 
@@ -88,21 +92,31 @@ export class TokenRefreshProcessor extends WorkerHost {
 
       this.logger.log(`Refreshed token for connection ${connectionId}`);
     } catch (err) {
-      this.logger.error(`Token refresh failed for connection ${connectionId}`, err);
-      await this.connectionsRepo.updateStatus(connectionId, ConnectionStatusEnum.expired);
+      this.logger.error(
+        `Token refresh failed for connection ${connectionId}`,
+        err,
+      );
+      await this.connectionsRepo.updateStatus(
+        connectionId,
+        ConnectionStatusEnum.expired,
+      );
     }
   }
 
   private decryptTokens(connection: Connection): Connection {
     const decrypted = Object.assign(new Connection(), connection);
     try {
-      decrypted.accessToken = this.encryptionService.decrypt(connection.accessToken);
+      decrypted.accessToken = this.encryptionService.decrypt(
+        connection.accessToken,
+      );
     } catch {
       decrypted.accessToken = connection.accessToken;
     }
     if (connection.refreshToken) {
       try {
-        decrypted.refreshToken = this.encryptionService.decrypt(connection.refreshToken);
+        decrypted.refreshToken = this.encryptionService.decrypt(
+          connection.refreshToken,
+        );
       } catch {
         decrypted.refreshToken = connection.refreshToken;
       }

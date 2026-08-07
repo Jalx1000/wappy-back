@@ -201,6 +201,8 @@ export class GoogleAdsProvider implements ChannelProvider {
     };
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -250,9 +252,7 @@ export class GoogleAdsProvider implements ChannelProvider {
     return adsClient.Customer({
       customer_id: connection.accountId,
       refresh_token: connection.refreshToken!,
-      ...(loginCustomerId
-        ? { login_customer_id: loginCustomerId }
-        : {}),
+      ...(loginCustomerId ? { login_customer_id: loginCustomerId } : {}),
     });
   }
 

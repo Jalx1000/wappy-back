@@ -17,10 +17,12 @@ export class InsightMapper {
   static toPersistence(domain: Partial<Insight>): Partial<InsightEntity> {
     const entity = new InsightEntity();
     if (domain.brandId !== undefined) entity.brandId = domain.brandId;
-    if (domain.connectionId !== undefined) entity.connectionId = domain.connectionId;
+    if (domain.connectionId !== undefined)
+      entity.connectionId = domain.connectionId;
     if (domain.period !== undefined) entity.period = domain.period;
     if (domain.summary !== undefined) entity.summary = domain.summary;
-    if (domain.recommendations !== undefined) entity.recommendations = domain.recommendations;
+    if (domain.recommendations !== undefined)
+      entity.recommendations = domain.recommendations;
     return entity;
   }
 }

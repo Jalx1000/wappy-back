@@ -13,9 +13,6 @@ import { EncryptionModule } from '../../encryption/encryption.module';
   ],
   controllers: [OrphanAccountsController],
   providers: [OrphanAccountsService],
-  exports: [
-    OrphanAccountsService,
-    OrphanAccountsRelationalPersistenceModule,
-  ],
+  exports: [OrphanAccountsService, OrphanAccountsRelationalPersistenceModule],
 })
 export class OrphanAccountsModule {}

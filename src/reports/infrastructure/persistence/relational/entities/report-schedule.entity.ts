@@ -19,7 +19,11 @@ export class ReportScheduleEntity extends EntityRelationalHelper {
   @Column({ type: Number })
   brandId: number;
 
-  @Column({ type: String, enum: ReportTypeEnum, default: ReportTypeEnum.summary })
+  @Column({
+    type: String,
+    enum: ReportTypeEnum,
+    default: ReportTypeEnum.summary,
+  })
   type: ReportTypeEnum;
 
   @Column({ type: String, enum: ReportFrequencyEnum })

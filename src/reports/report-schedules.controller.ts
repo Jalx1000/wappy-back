@@ -11,12 +11,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
 import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
@@ -63,10 +58,7 @@ export class ReportSchedulesController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', type: Number })
-  remove(
-    @CurrentBrand() brand: Brand,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  remove(@CurrentBrand() brand: Brand, @Param('id', ParseIntPipe) id: number) {
     return this.service.remove(brand.id, id);
   }
 }

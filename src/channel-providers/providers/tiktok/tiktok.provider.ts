@@ -141,15 +141,35 @@ export class TiktokProvider implements ChannelProvider {
       const stats = await this.fetchProfileStats(connection.accessToken);
       if (stats) {
         const date = dateRange.to;
-        const base = { connectionId: connection.id, brandId: connection.brandId, date };
+        const base = {
+          connectionId: connection.id,
+          brandId: connection.brandId,
+          date,
+        };
         if (stats.follower_count !== undefined)
-          rows.push({ ...base, metric: MetricEnum.followers, value: stats.follower_count });
+          rows.push({
+            ...base,
+            metric: MetricEnum.followers,
+            value: stats.follower_count,
+          });
         if (stats.following_count !== undefined)
-          rows.push({ ...base, metric: MetricEnum.following, value: stats.following_count });
+          rows.push({
+            ...base,
+            metric: MetricEnum.following,
+            value: stats.following_count,
+          });
         if (stats.likes_count !== undefined)
-          rows.push({ ...base, metric: MetricEnum.total_likes, value: stats.likes_count });
+          rows.push({
+            ...base,
+            metric: MetricEnum.total_likes,
+            value: stats.likes_count,
+          });
         if (stats.video_count !== undefined)
-          rows.push({ ...base, metric: MetricEnum.video_count, value: stats.video_count });
+          rows.push({
+            ...base,
+            metric: MetricEnum.video_count,
+            value: stats.video_count,
+          });
       }
     } catch (err) {
       this.logger.warn(`TikTok profile stats: ${(err as Error).message}`);
@@ -167,7 +187,10 @@ export class TiktokProvider implements ChannelProvider {
     if (videos.length === 0) return [];
 
     const videoIds = videos.map((v) => v.id);
-    const metrics = await this.queryVideoMetrics(connection.accessToken, videoIds);
+    const metrics = await this.queryVideoMetrics(
+      connection.accessToken,
+      videoIds,
+    );
 
     return videos.map((video) => {
       const m = metrics.find((x) => x.id === video.id);
@@ -249,7 +272,10 @@ export class TiktokProvider implements ChannelProvider {
         },
       );
 
-      if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+      if (
+        data['error'] &&
+        (data['error'] as Record<string, unknown>)['code'] !== 'ok'
+      ) {
         throw new Error(`TikTok video list: ${JSON.stringify(data['error'])}`);
       }
 
@@ -281,13 +307,17 @@ export class TiktokProvider implements ChannelProvider {
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
 
-    if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+    if (
+      data['error'] &&
+      (data['error'] as Record<string, unknown>)['code'] !== 'ok'
+    ) {
       throw new Error(`TikTok user info: ${JSON.stringify(data['error'])}`);
     }
 
     return (
-      ((data['data'] as Record<string, unknown>)?.['user'] as TiktokProfileStats) ??
-      null
+      ((data['data'] as Record<string, unknown>)?.[
+        'user'
+      ] as TiktokProfileStats) ?? null
     );
   }
 
@@ -313,13 +343,17 @@ export class TiktokProvider implements ChannelProvider {
         },
       );
 
-      if (data['error'] && (data['error'] as Record<string, unknown>)['code'] !== 'ok') {
+      if (
+        data['error'] &&
+        (data['error'] as Record<string, unknown>)['code'] !== 'ok'
+      ) {
         throw new Error(`TikTok video query: ${JSON.stringify(data['error'])}`);
       }
 
       const videos =
-        ((data['data'] as Record<string, unknown>)?.['videos'] as TiktokVideoMetrics[]) ??
-        [];
+        ((data['data'] as Record<string, unknown>)?.[
+          'videos'
+        ] as TiktokVideoMetrics[]) ?? [];
       results.push(...videos);
     }
 
@@ -328,7 +362,9 @@ export class TiktokProvider implements ChannelProvider {
 
   private ensureConfigured(): void {
     if (!this.config.get<string>('TIKTOK_CLIENT_KEY')) {
-      throw new Error('TikTok credentials not configured (TIKTOK_CLIENT_KEY missing)');
+      throw new Error(
+        'TikTok credentials not configured (TIKTOK_CLIENT_KEY missing)',
+      );
     }
   }
 }

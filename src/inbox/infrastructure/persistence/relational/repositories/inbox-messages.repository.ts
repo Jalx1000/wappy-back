@@ -20,7 +20,8 @@ export class InboxMessagesRepository {
     type?: string,
     limit: number = 20,
   ): Promise<InboxMessage[]> {
-    const query = this.repo.createQueryBuilder('m')
+    const query = this.repo
+      .createQueryBuilder('m')
       .where('m.brandId = :brandId', { brandId });
 
     if (status) query.andWhere('m.status = :status', { status });

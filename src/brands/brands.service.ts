@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Brand } from './domain/brand';
-import { BrandMemberRoleEnum, BrandMembership } from './domain/brand-membership';
+import {
+  BrandMemberRoleEnum,
+  BrandMembership,
+} from './domain/brand-membership';
 import { BrandsRepository } from './infrastructure/persistence/relational/repositories/brands.repository';
 import { BrandMembershipsRepository } from './infrastructure/persistence/relational/repositories/brand-memberships.repository';
 import { CreateBrandDto } from './dto/create-brand.dto';
@@ -98,11 +101,11 @@ export class BrandsService {
     await this.brandsRepo.softDelete(id);
   }
 
-  async getBrandIdsForUser(userId: number, userRole: RoleEnum): Promise<number[]> {
-    if (
-      userRole === RoleEnum.admin ||
-      userRole === RoleEnum.agency_admin
-    ) {
+  async getBrandIdsForUser(
+    userId: number,
+    userRole: RoleEnum,
+  ): Promise<number[]> {
+    if (userRole === RoleEnum.admin || userRole === RoleEnum.agency_admin) {
       const all = await this.brandsRepo.findAll();
       return all.map((b) => b.id);
     }
@@ -114,10 +117,7 @@ export class BrandsService {
     brandId: number,
     userRoleId: number,
   ): Promise<void> {
-    if (
-      userRoleId === RoleEnum.admin ||
-      userRoleId === RoleEnum.agency_admin
-    ) {
+    if (userRoleId === RoleEnum.admin || userRoleId === RoleEnum.agency_admin) {
       return;
     }
     const membership = await this.membershipsRepo.findOne(userId, brandId);

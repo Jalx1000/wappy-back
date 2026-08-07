@@ -16,7 +16,7 @@ const snap = (
 ): SnapshotLike => ({ connectionId, metric, date, value });
 
 describe('aggregateSnapshotKpis', () => {
-  it('sums the latest followers snapshot PER connection (regression: was global-latest)', () => {
+  it('should sum the latest followers snapshot PER connection (regression: was global-latest)', () => {
     // Two connections, each with several daily follower snapshots.
     const snapshots = [
       snap(1, 'followers', '2026-06-01', 400),
@@ -30,7 +30,7 @@ describe('aggregateSnapshotKpis', () => {
     expect(kpis.followers).toBe(56500);
   });
 
-  it('sums additive metrics across all snapshots and connections', () => {
+  it('should sum additive metrics across all snapshots and connections', () => {
     const snapshots = [
       snap(1, 'reach', '2026-06-01', 1000),
       snap(1, 'reach', '2026-06-02', 1500),
@@ -43,7 +43,7 @@ describe('aggregateSnapshotKpis', () => {
     expect(kpis.engagement).toBe(120);
   });
 
-  it('mixes additive and snapshot metrics correctly (Colchones-style brand)', () => {
+  it('should mix additive and snapshot metrics correctly (Colchones-style brand)', () => {
     const snapshots = [
       // 3 pages with different follower counts (real bug had 62 vs 56k sum)
       snap(101, 'followers', '2026-06-30', 461),
@@ -60,7 +60,7 @@ describe('aggregateSnapshotKpis', () => {
     expect((kpis.engagement / kpis.followers) * 100).toBeCloseTo(18.56, 1);
   });
 
-  it('handles a single connection (per-connection request) as that connection latest', () => {
+  it('should handle a single connection (per-connection request) as that connection latest', () => {
     const snapshots = [
       snap(2, 'followers', '2026-06-01', 55000),
       snap(2, 'followers', '2026-06-30', 56000),
@@ -69,7 +69,7 @@ describe('aggregateSnapshotKpis', () => {
     expect(kpis.followers).toBe(56000);
   });
 
-  it('returns an empty object for no snapshots', () => {
+  it('should return an empty object for no snapshots', () => {
     expect(aggregateSnapshotKpis([], SNAPSHOT_METRICS)).toEqual({});
   });
 });

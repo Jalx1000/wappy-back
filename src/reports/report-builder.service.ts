@@ -90,9 +90,9 @@ export class ReportBuilderService {
 
     const wanted = this.resolveSections(params.sections);
     const brand = await this.brandsRepo.findByIdIncludingDeleted(brandId);
-    const connections = (await this.connectionsRepo.findByBrandId(brandId)).filter(
-      (c) => c.status === ConnectionStatusEnum.connected,
-    );
+    const connections = (
+      await this.connectionsRepo.findByBrandId(brandId)
+    ).filter((c) => c.status === ConnectionStatusEnum.connected);
 
     const social = wanted.social
       ? await this.buildSocial(brandId, connections, from, to, prevFrom, prevTo)
@@ -117,7 +117,11 @@ export class ReportBuilderService {
 
     return {
       brand: { id: brandId, name: brand?.name ?? `Marca #${brandId}` },
-      period: { from: params.from, to: params.to, label: this.periodLabel(from, to) },
+      period: {
+        from: params.from,
+        to: params.to,
+        label: this.periodLabel(from, to),
+      },
       generatedAt: new Date().toISOString(),
       sections: Object.entries(wanted)
         .filter(([, v]) => v)
@@ -213,8 +217,7 @@ export class ReportBuilderService {
 
       const topPosts = posts
         .sort(
-          (a, b) =>
-            (b.metrics?.engagement ?? 0) - (a.metrics?.engagement ?? 0),
+          (a, b) => (b.metrics?.engagement ?? 0) - (a.metrics?.engagement ?? 0),
         )
         .slice(0, 6)
         .map((p) => ({
@@ -429,9 +432,8 @@ export class ReportBuilderService {
       },
     ];
 
-    const campaignRows = await this.adCampaignsRepo.findByBrandAndConnection(
-      brandId,
-    );
+    const campaignRows =
+      await this.adCampaignsRepo.findByBrandAndConnection(brandId);
     const campaigns: Array<Record<string, string | number | null>> = [];
     for (const campaign of campaignRows) {
       const metrics = await this.adMetricsRepo.findByCampaignAndDateRange(
@@ -459,7 +461,14 @@ export class ReportBuilderService {
     return { kpis, campaigns };
   }
 
-  private aggregateAds(rows: { spend: number; impressions: number; clicks: number; conversions: number }[]) {
+  private aggregateAds(
+    rows: {
+      spend: number;
+      impressions: number;
+      clicks: number;
+      conversions: number;
+    }[],
+  ) {
     return rows.reduce(
       (acc, r) => ({
         spend: acc.spend + Number(r.spend ?? 0),
@@ -504,13 +513,33 @@ export class ReportBuilderService {
     const totalEng = sumNetworkMetric(MetricEnum.engagement);
     const totalFollowers = sumNetworkMetric(MetricEnum.followers);
     if (posts.length)
-      kpis.push({ key: 'posts', label: 'Publicaciones', value: posts.length, unit: 'number' });
+      kpis.push({
+        key: 'posts',
+        label: 'Publicaciones',
+        value: posts.length,
+        unit: 'number',
+      });
     if (totalReach)
-      kpis.push({ key: 'reach', label: 'Alcance total', value: totalReach, unit: 'number' });
+      kpis.push({
+        key: 'reach',
+        label: 'Alcance total',
+        value: totalReach,
+        unit: 'number',
+      });
     if (totalEng)
-      kpis.push({ key: 'engagement', label: 'Interacciones', value: totalEng, unit: 'number' });
+      kpis.push({
+        key: 'engagement',
+        label: 'Interacciones',
+        value: totalEng,
+        unit: 'number',
+      });
     if (totalFollowers)
-      kpis.push({ key: 'followers', label: 'Seguidores', value: totalFollowers, unit: 'number' });
+      kpis.push({
+        key: 'followers',
+        label: 'Seguidores',
+        value: totalFollowers,
+        unit: 'number',
+      });
     if (web?.kpis.length) {
       const sessions = web.kpis.find((k) => k.key === MetricEnum.sessions);
       if (sessions) kpis.push({ ...sessions, label: 'Sesiones web' });
@@ -593,8 +622,7 @@ export class ReportBuilderService {
       .map((n) => n.kpis.find((k) => k.key === MetricEnum.reach)?.deltaPct)
       .filter((d): d is number => d != null);
     if (reachDeltas.length) {
-      const avg =
-        reachDeltas.reduce((a, b) => a + b, 0) / reachDeltas.length;
+      const avg = reachDeltas.reduce((a, b) => a + b, 0) / reachDeltas.length;
       out.push(
         avg >= 0
           ? `El alcance en redes sociales mostró una tendencia positiva (${avg.toFixed(1)}% promedio), reflejando un mayor interés de la audiencia.`

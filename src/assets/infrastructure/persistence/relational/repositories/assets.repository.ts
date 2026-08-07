@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { AssetEntity } from '../entities/asset.entity';
 import { Asset } from '../../../../domain/asset';
 import { AssetMapper } from '../mappers/asset.mapper';
@@ -29,7 +29,11 @@ export class AssetsRepository {
     return entities.map((e) => this.mapper.toDomain(e));
   }
 
-  async findByBrandAndType(brandId: number, type: string, limit: number = 50): Promise<Asset[]> {
+  async findByBrandAndType(
+    brandId: number,
+    type: string,
+    limit: number = 50,
+  ): Promise<Asset[]> {
     const entities = await this.repo.find({
       where: { brandId, type, deletedAt: IsNull() },
       order: { createdAt: 'DESC' },
@@ -38,8 +42,13 @@ export class AssetsRepository {
     return entities.map((e) => this.mapper.toDomain(e));
   }
 
-  async findByBrandAndTags(brandId: number, tags: string[], limit: number = 50): Promise<Asset[]> {
-    const query = this.repo.createQueryBuilder('a')
+  async findByBrandAndTags(
+    brandId: number,
+    tags: string[],
+    limit: number = 50,
+  ): Promise<Asset[]> {
+    const query = this.repo
+      .createQueryBuilder('a')
       .where('a.brandId = :brandId', { brandId })
       .andWhere('a.deletedAt IS NULL');
 

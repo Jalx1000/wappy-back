@@ -19,6 +19,8 @@ export class LinkedinProvider implements ChannelProvider {
 
   constructor(private readonly config: ConfigService) {}
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchMetrics(
     _connection: Connection,
     _dateRange: DateRange,
@@ -28,6 +30,8 @@ export class LinkedinProvider implements ChannelProvider {
     return [];
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -39,10 +43,14 @@ export class LinkedinProvider implements ChannelProvider {
   async refreshToken(connection: Connection): Promise<TokenData> {
     this.ensureConfigured();
     if (!connection.refreshToken) {
-      throw new Error('LinkedIn: no refresh token available for this connection');
+      throw new Error(
+        'LinkedIn: no refresh token available for this connection',
+      );
     }
     const clientId = this.config.getOrThrow<string>('LINKEDIN_CLIENT_ID');
-    const clientSecret = this.config.getOrThrow<string>('LINKEDIN_CLIENT_SECRET');
+    const clientSecret = this.config.getOrThrow<string>(
+      'LINKEDIN_CLIENT_SECRET',
+    );
 
     const { data } = await axios.post<Record<string, unknown>>(
       TOKEN_URL,
@@ -70,7 +78,9 @@ export class LinkedinProvider implements ChannelProvider {
 
   private ensureConfigured(): void {
     if (!this.config.get<string>('LINKEDIN_CLIENT_ID')) {
-      throw new Error('LinkedIn credentials not configured (LINKEDIN_CLIENT_ID missing)');
+      throw new Error(
+        'LinkedIn credentials not configured (LINKEDIN_CLIENT_ID missing)',
+      );
     }
   }
 }

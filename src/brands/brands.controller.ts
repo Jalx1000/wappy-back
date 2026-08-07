@@ -33,10 +33,7 @@ export class BrandsController {
   @Post()
   @Roles(RoleEnum.admin, RoleEnum.agency_admin)
   @HttpCode(HttpStatus.CREATED)
-  create(
-    @Body() dto: CreateBrandDto,
-    @CurrentUser() user: JwtPayloadType,
-  ) {
+  create(@Body() dto: CreateBrandDto, @CurrentUser() user: JwtPayloadType) {
     return this.brandsService.create(dto, Number(user.id));
   }
 
@@ -54,10 +51,7 @@ export class BrandsController {
   @Patch(':id')
   @Roles(RoleEnum.admin, RoleEnum.agency_admin)
   @ApiParam({ name: 'id', type: Number })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateBrandDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBrandDto) {
     return this.brandsService.update(id, dto);
   }
 
@@ -79,14 +73,11 @@ export class BrandsController {
   @Roles(RoleEnum.admin, RoleEnum.agency_admin)
   @ApiParam({ name: 'id', type: Number })
   @HttpCode(HttpStatus.CREATED)
-  addMember(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AddMemberDto,
-  ) {
+  addMember(@Param('id', ParseIntPipe) id: number, @Body() dto: AddMemberDto) {
     return this.brandsService.addMember(
       id,
       dto.userId,
-      dto.role ?? 'member' as any,
+      dto.role ?? ('member' as any),
     );
   }
 

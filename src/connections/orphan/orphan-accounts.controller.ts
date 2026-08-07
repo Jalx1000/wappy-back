@@ -30,10 +30,7 @@ export class OrphanAccountsController {
   @Post(':id/assign')
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'id', type: Number })
-  assign(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AssignOrphanDto,
-  ) {
+  assign(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignOrphanDto) {
     return this.orphansService.assignToBrand(id, dto.brandId);
   }
 

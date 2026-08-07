@@ -7,12 +7,14 @@ import { ReportData, ReportKpi } from './domain/report';
 const BLUE = '#0D5CA6';
 
 function fmtNumber(v: number): string {
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')}M`;
+  if (Math.abs(v) >= 1_000_000)
+    return `${(v / 1_000_000).toFixed(1).replace('.', ',')}M`;
   if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1).replace('.', ',')}K`;
   return new Intl.NumberFormat('es-BO').format(Math.round(v));
 }
 function fmtKpi(k: ReportKpi): string {
-  if (k.unit === 'currency') return `$${new Intl.NumberFormat('es-BO').format(Math.round(k.value))}`;
+  if (k.unit === 'currency')
+    return `$${new Intl.NumberFormat('es-BO').format(Math.round(k.value))}`;
   if (k.unit === 'percent') return `${k.value.toString().replace('.', ',')}%`;
   return fmtNumber(k.value);
 }
@@ -61,8 +63,7 @@ export class ReportEmailService {
       this.logger.warn(`No recipients for report #${reportId}, skipping email`);
       return;
     }
-    const frontendDomain =
-      this.config.get<string>('app.frontendDomain') ?? '';
+    const frontendDomain = this.config.get<string>('app.frontendDomain') ?? '';
     const link = `${frontendDomain}/app/reports/${reportId}`;
     const subject = `Reporte ${data.brand.name} · ${data.period.label}`;
     const filename = `reporte-${slug(data.brand.name)}-${data.period.from}.pdf`;
@@ -73,9 +74,7 @@ export class ReportEmailService {
       html: this.renderHtml(data, link),
       templatePath: '',
       context: {},
-      attachments: [
-        { filename, content: pdf, contentType: 'application/pdf' },
-      ],
+      attachments: [{ filename, content: pdf, contentType: 'application/pdf' }],
     });
     this.logger.log(
       `Report #${reportId} emailed to ${to.length} recipient(s) with PDF`,
@@ -98,7 +97,9 @@ export class ReportEmailService {
       })
       .join('');
 
-    const networks = (data.social?.networks ?? []).map((n) => n.label).join(' · ');
+    const networks = (data.social?.networks ?? [])
+      .map((n) => n.label)
+      .join(' · ');
     const networksLine = networks
       ? `<p style="margin:6px 0 0;font-size:13px;color:#6b7280;">Redes: ${networks}</p>`
       : '';

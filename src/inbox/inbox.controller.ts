@@ -38,7 +38,13 @@ export class InboxController {
     @Query('limit') limit?: string,
   ) {
     const pageLimit = limit ? parseInt(limit, 10) : 20;
-    return this.inboxService.getByBrand(brand.id, status, channel, type, pageLimit);
+    return this.inboxService.getByBrand(
+      brand.id,
+      status,
+      channel,
+      type,
+      pageLimit,
+    );
   }
 
   @Patch(':id/status')

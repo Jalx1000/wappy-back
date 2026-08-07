@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsArray } from 'class-validator';
 import { Annotation } from '../domain/approval';
 
 export class ReviewApprovalDto {

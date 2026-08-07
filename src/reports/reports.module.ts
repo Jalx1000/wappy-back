@@ -11,6 +11,10 @@ import { QueueModule } from '../queues/queue.module';
   imports: [ReportsRelationalPersistenceModule, BrandsModule, QueueModule],
   controllers: [ReportsController, ReportSchedulesController],
   providers: [ReportsService, ReportSchedulesService],
-  exports: [ReportsService, ReportSchedulesService, ReportsRelationalPersistenceModule],
+  exports: [
+    ReportsService,
+    ReportSchedulesService,
+    ReportsRelationalPersistenceModule,
+  ],
 })
 export class ReportsModule {}

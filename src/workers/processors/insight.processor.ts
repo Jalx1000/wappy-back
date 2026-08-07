@@ -36,22 +36,34 @@ export class InsightProcessor extends WorkerHost {
 
   async process(job: Job<InsightJobPayload>): Promise<void> {
     const { brandId, period, connectionId } = job.data;
-    this.logger.log(`Generating insight for brand #${brandId}, period ${period}`);
+    this.logger.log(
+      `Generating insight for brand #${brandId}, period ${period}`,
+    );
 
     try {
       const [year, month] = period.split('-').map(Number);
       const from = new Date(year, month - 1, 1);
       const to = new Date(year, month, 0, 23, 59, 59);
 
-      const snapshots = await this.snapshotsRepo.findByBrandAndRange(brandId, from, to);
+      const snapshots = await this.snapshotsRepo.findByBrandAndRange(
+        brandId,
+        from,
+        to,
+      );
 
       if (snapshots.length === 0) {
-        this.logger.warn(`No metrics found for brand #${brandId} in ${period}, skipping`);
+        this.logger.warn(
+          `No metrics found for brand #${brandId} in ${period}, skipping`,
+        );
         return;
       }
 
       const aggregated = this.aggregateForPrompt(
-        snapshots as Array<{ metric: string; value: number; connectionId: number }>,
+        snapshots as Array<{
+          metric: string;
+          value: number;
+          connectionId: number;
+        }>,
       );
 
       const insight = await this.callClaude(brandId, period, aggregated);

@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  Index,
+  CreateDateColumn,
+} from 'typeorm';
 
 @Entity('ad_metric_snapshot')
 @Index(['campaignId', 'date'], { unique: true })

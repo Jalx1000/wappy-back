@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ApprovalsRepository } from './infrastructure/persistence/relational/repositories/approvals.repository';
 import { Approval } from './domain/approval';
 import { CreateApprovalDto } from './dto/create-approval.dto';
@@ -25,7 +29,11 @@ export class ApprovalsService {
     return this.approvalsRepo.findByBrandAndStatus(brandId, status);
   }
 
-  async create(brandId: number, userId: number, dto: CreateApprovalDto): Promise<Approval> {
+  async create(
+    brandId: number,
+    userId: number,
+    dto: CreateApprovalDto,
+  ): Promise<Approval> {
     const approval = new Approval();
     approval.brandId = brandId;
     approval.assetId = dto.assetId;

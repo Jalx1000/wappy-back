@@ -10,4 +10,5 @@ export enum ChannelEnum {
   google_ads = 'google_ads',
   meta_ads = 'meta_ads',
   ga4 = 'ga4',
+  whatsapp = 'whatsapp',
 }

@@ -13,8 +13,13 @@ export class NotificationsRepository {
     private readonly mapper: NotificationMapper,
   ) {}
 
-  async findByUser(userId: number, unreadOnly: boolean = false, limit: number = 20): Promise<Notification[]> {
-    const query = this.repo.createQueryBuilder('n')
+  async findByUser(
+    userId: number,
+    unreadOnly: boolean = false,
+    limit: number = 20,
+  ): Promise<Notification[]> {
+    const query = this.repo
+      .createQueryBuilder('n')
       .where('n.userId = :userId', { userId });
 
     if (unreadOnly) {

@@ -59,14 +59,16 @@ export class SyncSocialProcessor extends WorkerHost {
       return;
     }
 
-    const { brandId, connectionId, dateFrom, dateTo } = job.data;
+    const { connectionId, dateFrom, dateTo } = job.data;
     if (!connectionId) {
       this.logger.warn(`sync-social job ${job.id} sin connectionId, skipping`);
       return;
     }
     const lockKey = `lock:sync:${connectionId}`;
 
-    this.logger.log(`Processing sync-social job ${job.id} for connection ${connectionId}`);
+    this.logger.log(
+      `Processing sync-social job ${job.id} for connection ${connectionId}`,
+    );
 
     const lockAcquired = await this.redis.set(lockKey, '1', 'EX', 600, 'NX');
     if (!lockAcquired) {
@@ -90,7 +92,9 @@ export class SyncSocialProcessor extends WorkerHost {
 
       const decryptedConnection = this.decryptTokens(connection);
 
-      const provider = this.providers.find((p) => p.channel === connection.channel);
+      const provider = this.providers.find(
+        (p) => p.channel === connection.channel,
+      );
       if (!provider) {
         this.logger.warn(
           `No provider for channel ${connection.channel}, skipping job ${job.id}`,
@@ -169,8 +173,7 @@ export class SyncSocialProcessor extends WorkerHost {
       // Mark error only when nothing at all could be fetched or stored;
       // otherwise the connection is (at least partially) healthy.
       const totalFailed =
-        metricsRes.status === 'rejected' &&
-        postsRes.status === 'rejected';
+        metricsRes.status === 'rejected' && postsRes.status === 'rejected';
       const writeFailed = snapshotsErr && postsErr;
       if (totalFailed || writeFailed) {
         await this.connectionsRepo.updateStatus(
@@ -197,7 +200,10 @@ export class SyncSocialProcessor extends WorkerHost {
       );
     } catch (err) {
       this.logger.error(`Sync failed for connection ${connectionId}`, err);
-      await this.connectionsRepo.updateStatus(connectionId, ConnectionStatusEnum.error);
+      await this.connectionsRepo.updateStatus(
+        connectionId,
+        ConnectionStatusEnum.error,
+      );
       throw err;
     } finally {
       await this.redis.del(lockKey);

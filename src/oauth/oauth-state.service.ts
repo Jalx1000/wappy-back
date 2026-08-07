@@ -30,9 +30,7 @@ export class OAuthStateService implements OnModuleDestroy {
   }
 
   async validateAndConsume(state: string): Promise<OAuthStateData | null> {
-    const raw = await this.redis.getdel(
-      `${OAuthStateService.PREFIX}${state}`,
-    );
+    const raw = await this.redis.getdel(`${OAuthStateService.PREFIX}${state}`);
     if (!raw) return null;
     return JSON.parse(raw) as OAuthStateData;
   }

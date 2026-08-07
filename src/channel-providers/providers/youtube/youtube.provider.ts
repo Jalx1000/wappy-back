@@ -38,7 +38,9 @@ export class YoutubeProvider implements ChannelProvider {
     });
 
     const columnHeaders = res.data.columnHeaders ?? [];
-    const colIndex = Object.fromEntries(columnHeaders.map((h, i) => [h.name!, i]));
+    const colIndex = Object.fromEntries(
+      columnHeaders.map((h, i) => [h.name!, i]),
+    );
     const rows: MetricRow[] = [];
 
     for (const row of res.data.rows ?? []) {
@@ -64,6 +66,8 @@ export class YoutubeProvider implements ChannelProvider {
     return rows;
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -75,7 +79,9 @@ export class YoutubeProvider implements ChannelProvider {
   async refreshToken(connection: Connection): Promise<TokenData> {
     this.ensureConfigured();
     if (!connection.refreshToken) {
-      throw new Error('YouTube: no refresh token available for this connection');
+      throw new Error(
+        'YouTube: no refresh token available for this connection',
+      );
     }
     const auth = new google.auth.OAuth2(
       this.config.getOrThrow<string>('YOUTUBE_CLIENT_ID'),
@@ -105,7 +111,9 @@ export class YoutubeProvider implements ChannelProvider {
 
   private ensureConfigured(): void {
     if (!this.config.get<string>('YOUTUBE_CLIENT_ID')) {
-      throw new Error('YouTube credentials not configured (YOUTUBE_CLIENT_ID missing)');
+      throw new Error(
+        'YouTube credentials not configured (YOUTUBE_CLIENT_ID missing)',
+      );
     }
   }
 }

@@ -17,6 +17,7 @@ import {
   QUEUE_SYNC_SOCIAL,
   QUEUE_SYNC_WEB,
   QUEUE_TOKENS,
+  QUEUE_WHATSAPP_SYNC,
 } from '../queues/queue-names.constants';
 import { SyncSocialProcessor } from './processors/sync-social.processor';
 import { SyncWebProcessor } from './processors/sync-web.processor';
@@ -45,6 +46,11 @@ import { PublishingCoreModule } from '../publishing/publishing-core.module';
 import { CalendarRelationalPersistenceModule } from '../calendar/infrastructure/persistence/relational/relational-persistence.module';
 import { PublishScheduleCronService } from './publish-schedule-cron.service';
 import { PublishProcessor } from './processors/publish.processor';
+import { ContactsModule } from '../contacts/contacts.module';
+import { RelationalWhatsappConversationPersistenceModule } from '../whatsapp-conversations/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalWhatsappMessagePersistenceModule } from '../whatsapp-messages/infrastructure/persistence/relational/relational-persistence.module';
+import { WhatsappIngestService } from '../webhooks/whatsapp-ingest.service';
+import { WhatsappHistoryProcessor } from './processors/whatsapp-history.processor';
 
 @Module({
   imports: [
@@ -63,6 +69,8 @@ import { PublishProcessor } from './processors/publish.processor';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         connection: {
+          // flat env key, not part of the typed config namespace
+          // eslint-disable-next-line no-restricted-syntax
           url: configService.get<string>('WORKER_HOST', 'redis://redis:6379/1'),
         },
         defaultJobOptions: {
@@ -84,7 +92,11 @@ import { PublishProcessor } from './processors/publish.processor';
       { name: QUEUE_MENTIONS },
       { name: QUEUE_INSIGHTS },
       { name: QUEUE_PUBLISH },
+      { name: QUEUE_WHATSAPP_SYNC },
     ),
+    ContactsModule,
+    RelationalWhatsappConversationPersistenceModule,
+    RelationalWhatsappMessagePersistenceModule,
     ConnectionsRelationalPersistenceModule,
     CalendarRelationalPersistenceModule,
     PublishingCoreModule,
@@ -114,6 +126,8 @@ import { PublishProcessor } from './processors/publish.processor';
     ReportScheduleCronService,
     PublishScheduleCronService,
     PublishProcessor,
+    WhatsappIngestService,
+    WhatsappHistoryProcessor,
   ],
 })
 export class WorkerModule {}

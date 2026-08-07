@@ -21,9 +21,7 @@ import { AssignDiscoveryDto } from './dto/assign-discovery.dto';
 @UseGuards(AuthGuard('jwt'))
 @Controller({ path: 'oauth-discoveries', version: '1' })
 export class OAuthDiscoveriesController {
-  constructor(
-    private readonly discoveriesService: OAuthDiscoveriesService,
-  ) {}
+  constructor(private readonly discoveriesService: OAuthDiscoveriesService) {}
 
   @Get(':id')
   @ApiParam({ name: 'id', type: Number })
@@ -43,10 +41,6 @@ export class OAuthDiscoveriesController {
     @Body() dto: AssignDiscoveryDto,
     @CurrentUser() user: JwtPayloadType,
   ) {
-    return this.discoveriesService.assign(
-      id,
-      Number(user.id),
-      dto.assignments,
-    );
+    return this.discoveriesService.assign(id, Number(user.id), dto.assignments);
   }
 }

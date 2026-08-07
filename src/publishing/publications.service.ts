@@ -89,7 +89,12 @@ export class PublicationsService {
       results.tiktok = await this.publishTiktok(item, brandId, meta);
     }
     if (networks.includes('facebook')) {
-      results.facebook = await this.publishMeta('facebook', item, brandId, meta);
+      results.facebook = await this.publishMeta(
+        'facebook',
+        item,
+        brandId,
+        meta,
+      );
     }
     if (networks.includes('instagram')) {
       results.instagram = await this.publishMeta(
@@ -233,8 +238,7 @@ export class PublicationsService {
     const c =
       all.find(
         (x) =>
-          x.channel === channel &&
-          x.status === ConnectionStatusEnum.connected,
+          x.channel === channel && x.status === ConnectionStatusEnum.connected,
       ) ?? all.find((x) => x.channel === channel);
     if (!c) {
       throw new Error(`No ${channel} connection for brand`);

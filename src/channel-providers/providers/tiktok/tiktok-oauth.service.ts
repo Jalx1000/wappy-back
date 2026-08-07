@@ -73,7 +73,10 @@ export class TiktokOAuthService implements ChannelOAuthService {
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     const user =
-      ((userData['data'] as Record<string, unknown>)?.['user'] as Record<string, unknown>) ?? {};
+      ((userData['data'] as Record<string, unknown>)?.['user'] as Record<
+        string,
+        unknown
+      >) ?? {};
 
     return [
       {

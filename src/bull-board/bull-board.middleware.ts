@@ -1,4 +1,9 @@
-import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response, NextFunction } from 'express';
@@ -19,7 +24,8 @@ export class BullBoardMiddleware implements NestMiddleware {
 
     const token = authHeader.replace('Bearer ', '');
     try {
-      const secret = this.configService.get('auth.secret') ||
+      const secret =
+        this.configService.get('auth.secret', { infer: true }) ||
         process.env.AUTH_JWT_SECRET ||
         'secret';
 
@@ -31,7 +37,7 @@ export class BullBoardMiddleware implements NestMiddleware {
       }
 
       next();
-    } catch (err) {
+    } catch {
       throw new UnauthorizedException('Invalid token');
     }
   }

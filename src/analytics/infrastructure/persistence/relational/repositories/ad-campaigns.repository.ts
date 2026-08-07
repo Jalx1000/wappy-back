@@ -28,8 +28,13 @@ export class AdCampaignsRepository {
     return entities.map((e) => this.mapper.toDomain(e));
   }
 
-  async findByBrandAndExternalId(brandId: number, externalId: string): Promise<AdCampaign | null> {
-    const entity = await this.repository.findOne({ where: { brandId, externalId } });
+  async findByBrandAndExternalId(
+    brandId: number,
+    externalId: string,
+  ): Promise<AdCampaign | null> {
+    const entity = await this.repository.findOne({
+      where: { brandId, externalId },
+    });
     return entity ? this.mapper.toDomain(entity) : null;
   }
 

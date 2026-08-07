@@ -43,6 +43,7 @@ import { ApprovalsModule } from './approvals/approvals.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InboxModule } from './inbox/inbox.module';
 import { PublishingModule } from './publishing/publishing.module';
+import { ProductsModule } from './products/products.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
@@ -73,8 +74,26 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     });
 // </database-block>
 
+import { WhatsappConversationsModule } from './whatsapp-conversations/whatsapp-conversations.module';
+
+import { WhatsappMessagesModule } from './whatsapp-messages/whatsapp-messages.module';
+
+import { WhatsappSyncRequestsModule } from './whatsapp-sync-requests/whatsapp-sync-requests.module';
+
+import { ContactsModule } from './contacts/contacts.module';
+
+import { ContactIdentitiesModule } from './contact-identities/contact-identities.module';
+
+import { SocialInboxModule } from './social-inbox/social-inbox.module';
+
 @Module({
   imports: [
+    SocialInboxModule,
+    ContactIdentitiesModule,
+    ContactsModule,
+    WhatsappSyncRequestsModule,
+    WhatsappMessagesModule,
+    WhatsappConversationsModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
@@ -150,6 +169,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     NotificationsModule,
     InboxModule,
     PublishingModule,
+    ProductsModule,
     WebhooksModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',

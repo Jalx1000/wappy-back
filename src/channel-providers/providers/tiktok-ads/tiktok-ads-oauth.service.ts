@@ -63,9 +63,7 @@ export class TiktokAdsOAuthService implements ChannelOAuthService {
 
   async exchangeCode(code: string): Promise<OAuthAccountResult[]> {
     const appId = this.config.getOrThrow<string>('TIKTOK_BUSINESS_APP_ID');
-    const secret = this.config.getOrThrow<string>(
-      'TIKTOK_BUSINESS_APP_SECRET',
-    );
+    const secret = this.config.getOrThrow<string>('TIKTOK_BUSINESS_APP_SECRET');
 
     // 1) auth_code → access_token + lista de advertiser_ids
     const { data: tokenResp } = await axios.post<TiktokTokenResponse>(
@@ -99,8 +97,9 @@ export class TiktokAdsOAuthService implements ChannelOAuthService {
     }
 
     // 2) Info de cada advertiser (puede haber varios)
-    const { data: infoResp } =
-      await axios.get<TiktokAdvertiserInfoResponse>(ADVERTISER_INFO_URL, {
+    const { data: infoResp } = await axios.get<TiktokAdvertiserInfoResponse>(
+      ADVERTISER_INFO_URL,
+      {
         params: {
           advertiser_ids: JSON.stringify(advertiserIds),
           fields: JSON.stringify([
@@ -115,7 +114,8 @@ export class TiktokAdsOAuthService implements ChannelOAuthService {
           ]),
         },
         headers: { 'Access-Token': accessToken },
-      });
+      },
+    );
 
     if (infoResp.code !== 0) {
       throw new Error(

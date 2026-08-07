@@ -62,7 +62,12 @@ export class MetaAdsProvider implements ChannelProvider {
     const result = await this.fetchAdData(connection, dateRange);
     const byDay = new Map<
       string,
-      { spend: number; clicks: number; impressions: number; conversions: number }
+      {
+        spend: number;
+        clicks: number;
+        impressions: number;
+        conversions: number;
+      }
     >();
     for (const s of result.snapshots) {
       const k = new Date(s.date).toISOString().slice(0, 10);
@@ -183,6 +188,8 @@ export class MetaAdsProvider implements ChannelProvider {
     };
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPosts(
     _connection: Connection,
     _dateRange: DateRange,
@@ -190,6 +197,8 @@ export class MetaAdsProvider implements ChannelProvider {
     return [];
   }
 
+  // async to satisfy the ChannelProvider interface; stub has no awaited I/O yet
+  // eslint-disable-next-line @typescript-eslint/require-await
   async refreshToken(_connection: Connection): Promise<TokenData> {
     // Meta long-lived tokens last ~60d and can't be silently refreshed;
     // user must reauth. Return existing.

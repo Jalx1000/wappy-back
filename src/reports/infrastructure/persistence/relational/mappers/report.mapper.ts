@@ -25,7 +25,8 @@ export class ReportMapper {
     if (domain.params !== undefined) entity.params = domain.params;
     if (domain.fileUrl !== undefined) entity.fileUrl = domain.fileUrl;
     if (domain.data !== undefined) entity.data = domain.data;
-    if (domain.errorMessage !== undefined) entity.errorMessage = domain.errorMessage;
+    if (domain.errorMessage !== undefined)
+      entity.errorMessage = domain.errorMessage;
     return entity;
   }
 }

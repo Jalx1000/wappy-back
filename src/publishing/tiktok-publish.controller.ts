@@ -23,7 +23,11 @@ import {
   TiktokPrivacyLevel,
 } from '../channel-providers/providers/tiktok/tiktok-publish.service';
 import { MediaResolverService } from './media-resolver.service';
-import { PublishMode, PublishTiktokDto, TiktokPrivacy } from './dto/publish-tiktok.dto';
+import {
+  PublishMode,
+  PublishTiktokDto,
+  TiktokPrivacy,
+} from './dto/publish-tiktok.dto';
 
 @ApiTags('Publishing')
 @ApiBearerAuth()

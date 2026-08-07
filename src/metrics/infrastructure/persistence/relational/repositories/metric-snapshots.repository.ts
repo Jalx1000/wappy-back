@@ -31,10 +31,13 @@ export class MetricSnapshotsRepository {
     // same row twice ("cannot affect row a second time").
     const byKey = new Map<string, MetricSnapshot>();
     for (const s of snapshots) {
-      const t = s.date instanceof Date ? s.date.getTime() : new Date(s.date).getTime();
+      const t =
+        s.date instanceof Date ? s.date.getTime() : new Date(s.date).getTime();
       byKey.set(`${s.connectionId}|${s.metric}|${t}`, s);
     }
-    const entities = [...byKey.values()].map(MetricSnapshotMapper.toPersistence);
+    const entities = [...byKey.values()].map(
+      MetricSnapshotMapper.toPersistence,
+    );
     await this.repo
       .createQueryBuilder()
       .insert()

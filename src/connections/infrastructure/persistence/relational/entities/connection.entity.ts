@@ -38,7 +38,11 @@ export class ConnectionEntity extends EntityRelationalHelper {
   @Column({ type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 
-  @Column({ type: String, enum: ConnectionStatusEnum, default: ConnectionStatusEnum.pending })
+  @Column({
+    type: String,
+    enum: ConnectionStatusEnum,
+    default: ConnectionStatusEnum.pending,
+  })
   status: ConnectionStatusEnum;
 
   @Column({ type: 'timestamptz', nullable: true })

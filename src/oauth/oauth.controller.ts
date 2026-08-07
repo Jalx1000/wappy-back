@@ -33,7 +33,8 @@ export class OAuthController {
 
   constructor(
     private readonly stateService: OAuthStateService,
-    @Inject(OAUTH_SERVICES) private readonly oauthServices: ChannelOAuthService[],
+    @Inject(OAUTH_SERVICES)
+    private readonly oauthServices: ChannelOAuthService[],
     private readonly config: ConfigService,
     private readonly discoveriesRepo: OAuthDiscoveriesRepository,
     private readonly encryption: EncryptionService,
@@ -51,7 +52,8 @@ export class OAuthController {
     @CurrentUser() user: JwtPayloadType,
   ) {
     const brandId = parseInt(brandIdRaw, 10);
-    if (isNaN(brandId)) throw new BadRequestException('brandId must be a number');
+    if (isNaN(brandId))
+      throw new BadRequestException('brandId must be a number');
 
     const svc = this.oauthServices.find((s) => s.urlChannel === channel);
     if (!svc) throw new BadRequestException(`Unknown channel: ${channel}`);

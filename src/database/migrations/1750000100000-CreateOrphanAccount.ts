@@ -1,9 +1,4 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableIndex,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class CreateOrphanAccount1750000100000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -16,7 +16,12 @@ export class AssetsService {
     return asset;
   }
 
-  async getByBrand(brandId: number, type?: string, tags?: string[], limit?: number): Promise<Asset[]> {
+  async getByBrand(
+    brandId: number,
+    type?: string,
+    tags?: string[],
+    limit?: number,
+  ): Promise<Asset[]> {
     if (type) {
       return this.assetsRepo.findByBrandAndType(brandId, type, limit);
     }
@@ -26,7 +31,11 @@ export class AssetsService {
     return this.assetsRepo.findByBrand(brandId, limit);
   }
 
-  async create(brandId: number, userId: number, dto: CreateAssetDto): Promise<Asset> {
+  async create(
+    brandId: number,
+    userId: number,
+    dto: CreateAssetDto,
+  ): Promise<Asset> {
     const asset = new Asset();
     asset.brandId = brandId;
     asset.name = dto.name;
@@ -39,7 +48,11 @@ export class AssetsService {
     return this.assetsRepo.save(asset);
   }
 
-  async update(id: number, brandId: number, dto: UpdateAssetDto): Promise<Asset> {
+  async update(
+    id: number,
+    brandId: number,
+    dto: UpdateAssetDto,
+  ): Promise<Asset> {
     const asset = await this.getById(id, brandId);
     if (dto.name) asset.name = dto.name;
     if (dto.type) asset.type = dto.type;

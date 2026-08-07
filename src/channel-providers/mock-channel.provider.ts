@@ -14,7 +14,10 @@ import { MetricEnum } from '../metrics/domain/metric.enum';
 export class MockChannelProvider implements ChannelProvider {
   channel = ChannelEnum.instagram;
 
-  fetchMetrics(connection: Connection, dateRange: DateRange): Promise<MetricRow[]> {
+  fetchMetrics(
+    connection: Connection,
+    dateRange: DateRange,
+  ): Promise<MetricRow[]> {
     const rows: MetricRow[] = [];
     const days = this.eachDay(dateRange.from, dateRange.to);
 
@@ -44,7 +47,10 @@ export class MockChannelProvider implements ChannelProvider {
       push(MetricEnum.reach, reach);
       push(MetricEnum.impressions, impressions);
       push(MetricEnum.engagement, engagement);
-      push(MetricEnum.engagement_rate, Math.round(engagementRate * 10000) / 100);
+      push(
+        MetricEnum.engagement_rate,
+        Math.round(engagementRate * 10000) / 100,
+      );
       push(MetricEnum.likes, likes);
       push(MetricEnum.comments, comments);
       push(MetricEnum.shares, shares);
@@ -53,7 +59,10 @@ export class MockChannelProvider implements ChannelProvider {
     return Promise.resolve(rows);
   }
 
-  fetchPosts(connection: Connection, dateRange: DateRange): Promise<PostData[]> {
+  fetchPosts(
+    connection: Connection,
+    dateRange: DateRange,
+  ): Promise<PostData[]> {
     const days = this.eachDay(dateRange.from, dateRange.to);
     const postDays = days.filter((_, i) => i % 3 === 0);
     const types = ['image', 'video', 'carousel', 'reel', 'story'];

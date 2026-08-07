@@ -65,9 +65,7 @@ export class YoutubeOAuthService implements ChannelOAuthService {
       accountHandle: ch.snippet?.title ?? ch.id!,
       accessToken: tokens.access_token!,
       refreshToken: tokens.refresh_token ?? undefined,
-      expiresAt: tokens.expiry_date
-        ? new Date(tokens.expiry_date)
-        : undefined,
+      expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
       scopes: SCOPES,
       metadata: {
         channelId: ch.id,

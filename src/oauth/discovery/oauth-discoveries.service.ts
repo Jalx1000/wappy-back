@@ -123,9 +123,7 @@ export class OAuthDiscoveriesService {
    * result shape expected by ConnectionsService.upsertFromOAuth (which
    * re-encrypts internally). We decrypt here to round-trip cleanly.
    */
-  private toOAuthAccountResult(
-    acc: OAuthDiscoveryAccount,
-  ): OAuthAccountResult {
+  private toOAuthAccountResult(acc: OAuthDiscoveryAccount): OAuthAccountResult {
     const decryptedAccess = this.safeDecrypt(acc.accessToken);
     const decryptedRefresh = acc.refreshToken
       ? this.safeDecrypt(acc.refreshToken)
