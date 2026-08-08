@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -95,5 +96,15 @@ export class ContactsController {
       survivorId,
       dto.loserId,
     );
+  }
+
+  @Delete(':id')
+  @ApiParam({ name: 'id', type: String, required: true })
+  async remove(
+    @CurrentBrand() brand: Brand,
+    @Param('id') id: string,
+  ): Promise<{ id: string }> {
+    await this.contactsService.removeForBrand(brand.id, id);
+    return { id };
   }
 }

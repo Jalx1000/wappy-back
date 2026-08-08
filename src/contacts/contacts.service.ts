@@ -296,4 +296,21 @@ export class ContactsService {
   remove(id: Contact['id']) {
     return this.contactRepository.remove(id);
   }
+
+  /**
+   * Hard-deletes a brand-owned contact together with its channel identities.
+   * Conversations keep their (now dangling) contactId and simply fall back to
+   * showing the peer handle — they are not owned by the contact record.
+   */
+  async removeForBrand(brandId: number, id: Contact['id']): Promise<void> {
+    const contact = await this.contactRepository.findById(id);
+    if (!contact || contact.brandId !== brandId) {
+      throw new NotFoundException('Contact not found');
+    }
+    const identities = await this.identityRepository.findByContactId(id);
+    for (const identity of identities) {
+      await this.identityRepository.remove(identity.id);
+    }
+    await this.contactRepository.remove(id);
+  }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { MessengerConversationEntity } from '../entities/messenger-conversation.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { MessengerConversation } from '../../../../domain/messenger-conversation';
@@ -44,6 +44,13 @@ export class MessengerConversationRelationalRepository implements MessengerConve
     const entities = await this.repo.find({
       where: { connectionId: In(connectionIds) },
       order: { lastMessageAt: 'DESC' },
+    });
+    return entities.map((e) => MessengerConversationMapper.toDomain(e));
+  }
+
+  async findMissingProfile(): Promise<MessengerConversation[]> {
+    const entities = await this.repo.find({
+      where: { peerName: IsNull() },
     });
     return entities.map((e) => MessengerConversationMapper.toDomain(e));
   }
