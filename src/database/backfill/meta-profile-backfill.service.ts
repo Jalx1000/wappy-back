@@ -5,6 +5,16 @@ import { InstagramConversationRepository } from '../../instagram-conversations/i
 import { MessengerConversationRepository } from '../../messenger-conversations/infrastructure/persistence/messenger-conversation.repository';
 import { MetaProfileService } from '../../webhooks/meta-profile.service';
 
+export interface BackfillCount {
+  found: number;
+  updated: number;
+}
+
+export interface BackfillSummary {
+  instagram: BackfillCount;
+  messenger: BackfillCount;
+}
+
 /**
  * One-off backfill: resolves the display name for IG/Messenger threads created
  * before the profile lookup existed (they only stored the raw IGSID/PSID). For
@@ -27,13 +37,14 @@ export class MetaProfileBackfillService {
     private readonly profileService: MetaProfileService,
   ) {}
 
-  async run(): Promise<void> {
-    await this.backfillInstagram();
-    await this.backfillMessenger();
+  async run(): Promise<BackfillSummary> {
+    const instagram = await this.backfillInstagram();
+    const messenger = await this.backfillMessenger();
     this.logger.log('Backfill finished');
+    return { instagram, messenger };
   }
 
-  private async backfillInstagram(): Promise<void> {
+  private async backfillInstagram(): Promise<BackfillCount> {
     const conversations = await this.igConversationsRepo.findMissingProfile();
     this.logger.log(
       `Instagram: ${conversations.length} threads missing a profile name`,
@@ -59,9 +70,10 @@ export class MetaProfileBackfillService {
       updated++;
     }
     this.logger.log(`Instagram: updated ${updated}/${conversations.length}`);
+    return { found: conversations.length, updated };
   }
 
-  private async backfillMessenger(): Promise<void> {
+  private async backfillMessenger(): Promise<BackfillCount> {
     const conversations =
       await this.messengerConversationsRepo.findMissingProfile();
     this.logger.log(
@@ -85,6 +97,7 @@ export class MetaProfileBackfillService {
       updated++;
     }
     this.logger.log(`Messenger: updated ${updated}/${conversations.length}`);
+    return { found: conversations.length, updated };
   }
 
   /** Sets the central contact's displayName only when it is still empty. */

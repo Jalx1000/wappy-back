@@ -86,8 +86,11 @@ import { ContactIdentitiesModule } from './contact-identities/contact-identities
 
 import { SocialInboxModule } from './social-inbox/social-inbox.module';
 
+import { MaintenanceModule } from './maintenance/maintenance.module';
+
 @Module({
   imports: [
+    MaintenanceModule,
     SocialInboxModule,
     ContactIdentitiesModule,
     ContactsModule,
