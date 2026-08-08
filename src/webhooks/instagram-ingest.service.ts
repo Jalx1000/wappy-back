@@ -7,6 +7,7 @@ import { InstagramConversationRepository } from '../instagram-conversations/infr
 import { InstagramConversation } from '../instagram-conversations/domain/instagram-conversation';
 import { InstagramMessageRepository } from '../instagram-messages/infrastructure/persistence/instagram-message.repository';
 import { IgMessagingItem } from './instagram-webhook.service';
+import { MetaProfileService } from './meta-profile.service';
 
 /**
  * Persists Instagram Direct webhook events into the central contact model and
@@ -23,6 +24,7 @@ export class InstagramIngestService {
     private readonly contactsService: ContactsService,
     private readonly conversationsRepo: InstagramConversationRepository,
     private readonly messagesRepo: InstagramMessageRepository,
+    private readonly profileService: MetaProfileService,
   ) {}
 
   /** Handles one entry[].messaging[] item (a DM, an echo of ours, a reaction…). */
@@ -115,19 +117,28 @@ export class InstagramIngestService {
     );
     if (existing) return existing;
 
-    // New thread → resolve/create the central contact first.
+    // New thread → look up the peer's profile (the webhook only carries the
+    // IGSID) so the inbox shows a name instead of the id. Best-effort.
+    const profile = await this.profileService.fetchProfile(
+      connection,
+      igUserId,
+    );
+
+    // Resolve/create the central contact, seeding its display name + handle.
     const { contact } = await this.contactsService.upsertIdentity({
       brandId: connection.brandId,
       channel: connection.channel,
       connectionId: connection.id,
       externalId: igUserId,
+      profileName: profile?.name ?? profile?.username ?? null,
+      handle: profile?.username ?? null,
     });
 
     return this.conversationsRepo.create({
       connectionId: connection.id,
       igUserId,
       contactId: contact.id,
-      peerUsername: null,
+      peerUsername: profile?.username ?? profile?.name ?? null,
       lastMessageAt: null,
     });
   }

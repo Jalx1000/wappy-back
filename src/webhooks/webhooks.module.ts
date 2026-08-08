@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConnectionsRelationalPersistenceModule } from '../connections/infrastructure/persistence/relational/relational-persistence.module';
 import { ContactsModule } from '../contacts/contacts.module';
+import { EncryptionModule } from '../encryption/encryption.module';
 import { RelationalWhatsappConversationPersistenceModule } from '../whatsapp-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalWhatsappMessagePersistenceModule } from '../whatsapp-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramConversationPersistenceModule } from '../instagram-conversations/infrastructure/persistence/relational/relational-persistence.module';
@@ -19,6 +20,7 @@ import { InstagramIngestService } from './instagram-ingest.service';
 import { MessengerWebhookController } from './messenger-webhook.controller';
 import { MessengerWebhookService } from './messenger-webhook.service';
 import { MessengerIngestService } from './messenger-ingest.service';
+import { MetaProfileService } from './meta-profile.service';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { MessengerIngestService } from './messenger-ingest.service';
     RelationalInstagramMessagePersistenceModule,
     RelationalMessengerConversationPersistenceModule,
     RelationalMessengerMessagePersistenceModule,
+    EncryptionModule,
     QueueModule,
   ],
   controllers: [
@@ -46,6 +49,7 @@ import { MessengerIngestService } from './messenger-ingest.service';
     InstagramIngestService,
     MessengerWebhookService,
     MessengerIngestService,
+    MetaProfileService,
   ],
 })
 export class WebhooksModule {}

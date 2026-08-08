@@ -7,6 +7,7 @@ import { MessengerConversationRepository } from '../messenger-conversations/infr
 import { MessengerConversation } from '../messenger-conversations/domain/messenger-conversation';
 import { MessengerMessageRepository } from '../messenger-messages/infrastructure/persistence/messenger-message.repository';
 import { MsgrMessagingItem } from './messenger-webhook.service';
+import { MetaProfileService } from './meta-profile.service';
 
 /**
  * Persists Facebook Messenger (Page) webhook events into the central contact
@@ -23,6 +24,7 @@ export class MessengerIngestService {
     private readonly contactsService: ContactsService,
     private readonly conversationsRepo: MessengerConversationRepository,
     private readonly messagesRepo: MessengerMessageRepository,
+    private readonly profileService: MetaProfileService,
   ) {}
 
   /** Handles one entry[].messaging[] item (a message, echo, reaction, postback…). */
@@ -120,19 +122,24 @@ export class MessengerIngestService {
     );
     if (existing) return existing;
 
-    // New thread → resolve/create the central contact first.
+    // New thread → look up the peer's profile (the webhook only carries the
+    // PSID) so the inbox shows a name instead of the id. Best-effort.
+    const profile = await this.profileService.fetchProfile(connection, psid);
+
+    // Resolve/create the central contact, seeding its display name.
     const { contact } = await this.contactsService.upsertIdentity({
       brandId: connection.brandId,
       channel: connection.channel,
       connectionId: connection.id,
       externalId: psid,
+      profileName: profile?.name ?? null,
     });
 
     return this.conversationsRepo.create({
       connectionId: connection.id,
       psid,
       contactId: contact.id,
-      peerName: null,
+      peerName: profile?.name ?? null,
       lastMessageAt: null,
     });
   }
