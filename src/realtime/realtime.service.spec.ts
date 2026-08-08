@@ -24,7 +24,7 @@ const makeServer = () => {
 };
 
 describe('RealtimeService', () => {
-  it('emits message:new and conversation:updated to the brand room', () => {
+  it('should emit message:new and conversation:updated to the brand room', () => {
     const { server, to, emit } = makeServer();
     const service = new RealtimeService();
     service.bindServer(server);
@@ -57,7 +57,7 @@ describe('RealtimeService', () => {
     );
   });
 
-  it('relays typing to the brand room', () => {
+  it('should relay typing to the brand room', () => {
     const { server, to, emit } = makeServer();
     const service = new RealtimeService();
     service.bindServer(server);
@@ -76,7 +76,7 @@ describe('RealtimeService', () => {
     );
   });
 
-  it('is a no-op when no server is bound (e.g. worker process)', () => {
+  it('should be a no-op when no server is bound (e.g. worker process)', () => {
     const service = new RealtimeService();
     expect(() =>
       service.emitMessageCreated({
