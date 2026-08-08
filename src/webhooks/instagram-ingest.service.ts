@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
@@ -8,6 +8,7 @@ import { InstagramConversation } from '../instagram-conversations/domain/instagr
 import { InstagramMessageRepository } from '../instagram-messages/infrastructure/persistence/instagram-message.repository';
 import { IgMessagingItem } from './instagram-webhook.service';
 import { MetaProfileService } from './meta-profile.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 /**
  * Persists Instagram Direct webhook events into the central contact model and
@@ -25,6 +26,7 @@ export class InstagramIngestService {
     private readonly conversationsRepo: InstagramConversationRepository,
     private readonly messagesRepo: InstagramMessageRepository,
     private readonly profileService: MetaProfileService,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   /** Handles one entry[].messaging[] item (a DM, an echo of ours, a reaction…). */
@@ -164,7 +166,7 @@ export class InstagramIngestService {
 
     const sentAt = m.timestamp ? new Date(m.timestamp) : new Date();
 
-    await this.messagesRepo.create({
+    const created = await this.messagesRepo.create({
       connectionId: connection.id,
       conversationId: conversation.id,
       externalId: m.externalId,
@@ -183,6 +185,14 @@ export class InstagramIngestService {
 
     await this.conversationsRepo.update(conversation.id, {
       lastMessageAt: sentAt,
+    });
+
+    this.realtime?.emitMessageCreated({
+      brandId: connection.brandId,
+      channel: connection.channel,
+      connectionId: connection.id,
+      conversationId: conversation.id,
+      message: created,
     });
   }
 

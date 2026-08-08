@@ -88,8 +88,11 @@ import { SocialInboxModule } from './social-inbox/social-inbox.module';
 
 import { MaintenanceModule } from './maintenance/maintenance.module';
 
+import { RealtimeModule } from './realtime/realtime.module';
+
 @Module({
   imports: [
+    RealtimeModule,
     MaintenanceModule,
     SocialInboxModule,
     ContactIdentitiesModule,

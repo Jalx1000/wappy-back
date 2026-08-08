@@ -13,6 +13,7 @@ import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
+import { RedisIoAdapter } from './realtime/redis-io.adapter';
 
 async function bootstrap() {
   // rawBody: true exposes req.rawBody (Buffer) so webhook controllers can verify
@@ -68,6 +69,22 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('docs', app, document);
+
+  // Realtime (/rt): scale socket.io across instances with a Redis adapter when a
+  // Redis URL is configured. Best-effort — falls back to the in-memory adapter.
+  const redisUrl =
+    process.env.WORKER_HOST || process.env.REDIS_URL || process.env.REDIS_HOST;
+  if (redisUrl) {
+    try {
+      const redisIoAdapter = new RedisIoAdapter(app);
+      await redisIoAdapter.connectToRedis(
+        redisUrl.startsWith('redis') ? redisUrl : `redis://${redisUrl}`,
+      );
+      app.useWebSocketAdapter(redisIoAdapter);
+    } catch {
+      // keep the default in-memory adapter (single-instance / local dev)
+    }
+  }
 
   await app.listen(configService.getOrThrow('app.port', { infer: true }));
 }

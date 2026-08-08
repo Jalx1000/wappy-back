@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { RealtimeService } from '../realtime/realtime.service';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
@@ -88,6 +90,7 @@ export class SocialInboxService {
     private readonly whatsappSend: WhatsappSendService,
     private readonly instagramSend: InstagramSendService,
     private readonly messengerSend: MessengerSendService,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   /** The brand's connected accounts that can hold conversations (for filters). */
@@ -361,6 +364,13 @@ export class SocialInboxService {
     await this.igConversationsRepo.update(conversation.id, {
       lastMessageAt: created.sentAt,
     });
+    this.realtime?.emitMessageCreated({
+      brandId: connection.brandId,
+      channel: connection.channel,
+      connectionId: connection.id,
+      conversationId: conversation.id,
+      message: created,
+    });
     return this.mapInstagramMessage(created);
   }
 
@@ -396,6 +406,13 @@ export class SocialInboxService {
     });
     await this.messengerConversationsRepo.update(conversation.id, {
       lastMessageAt: created.sentAt,
+    });
+    this.realtime?.emitMessageCreated({
+      brandId: connection.brandId,
+      channel: connection.channel,
+      connectionId: connection.id,
+      conversationId: conversation.id,
+      message: created,
     });
     return this.mapMessengerMessage(created);
   }
@@ -505,6 +522,13 @@ export class SocialInboxService {
     });
     await this.conversationsRepo.update(conversation.id, {
       lastMessageAt: created.sentAt,
+    });
+    this.realtime?.emitMessageCreated({
+      brandId: connection.brandId,
+      channel: ChannelEnum.whatsapp,
+      connectionId: connection.id,
+      conversationId: conversation.id,
+      message: created,
     });
     return this.mapMessage(created);
   }

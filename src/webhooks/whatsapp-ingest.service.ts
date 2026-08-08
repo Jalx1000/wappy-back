@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
@@ -6,6 +6,7 @@ import { ContactsService } from '../contacts/contacts.service';
 import { WhatsappConversationRepository } from '../whatsapp-conversations/infrastructure/persistence/whatsapp-conversation.repository';
 import { WhatsappConversation } from '../whatsapp-conversations/domain/whatsapp-conversation';
 import { WhatsappMessageRepository } from '../whatsapp-messages/infrastructure/persistence/whatsapp-message.repository';
+import { RealtimeService } from '../realtime/realtime.service';
 
 // --- Minimal shapes of the webhook change `value` objects (see
 // manual-integracion/whatsapp/coexistence/02-webhooks-referencia.md). ---
@@ -76,6 +77,8 @@ export class WhatsappIngestService {
     private readonly contactsService: ContactsService,
     private readonly conversationsRepo: WhatsappConversationRepository,
     private readonly messagesRepo: WhatsappMessageRepository,
+    // Absent in the worker process (history backfill), so injection is optional.
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   async handleChange(field: string, value: unknown): Promise<void> {
@@ -303,7 +306,7 @@ export class WhatsappIngestService {
       ? new Date(parseInt(msg.timestamp, 10) * 1000)
       : new Date();
 
-    await this.messagesRepo.create({
+    const created = await this.messagesRepo.create({
       connectionId: connection.id,
       conversationId: conversation.id,
       externalId,
@@ -323,6 +326,18 @@ export class WhatsappIngestService {
     await this.conversationsRepo.update(conversation.id, {
       lastMessageAt: sentAt,
     });
+
+    // Push live traffic (inbound + our own echoes) to connected agents. History
+    // backfill runs in the worker (no socket server) and must not push.
+    if (source !== 'history') {
+      this.realtime?.emitMessageCreated({
+        brandId: connection.brandId,
+        channel: ChannelEnum.whatsapp,
+        connectionId: connection.id,
+        conversationId: conversation.id,
+        message: created,
+      });
+    }
   }
 
   private async applyEdit(

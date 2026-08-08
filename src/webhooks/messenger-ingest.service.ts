@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
@@ -8,6 +8,7 @@ import { MessengerConversation } from '../messenger-conversations/domain/messeng
 import { MessengerMessageRepository } from '../messenger-messages/infrastructure/persistence/messenger-message.repository';
 import { MsgrMessagingItem } from './messenger-webhook.service';
 import { MetaProfileService } from './meta-profile.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 /**
  * Persists Facebook Messenger (Page) webhook events into the central contact
@@ -25,6 +26,7 @@ export class MessengerIngestService {
     private readonly conversationsRepo: MessengerConversationRepository,
     private readonly messagesRepo: MessengerMessageRepository,
     private readonly profileService: MetaProfileService,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   /** Handles one entry[].messaging[] item (a message, echo, reaction, postback…). */
@@ -165,7 +167,7 @@ export class MessengerIngestService {
 
     const sentAt = m.timestamp ? new Date(m.timestamp) : new Date();
 
-    await this.messagesRepo.create({
+    const created = await this.messagesRepo.create({
       connectionId: connection.id,
       conversationId: conversation.id,
       externalId: m.externalId,
@@ -184,6 +186,14 @@ export class MessengerIngestService {
 
     await this.conversationsRepo.update(conversation.id, {
       lastMessageAt: sentAt,
+    });
+
+    this.realtime?.emitMessageCreated({
+      brandId: connection.brandId,
+      channel: connection.channel,
+      connectionId: connection.id,
+      conversationId: conversation.id,
+      message: created,
     });
   }
 
