@@ -52,11 +52,14 @@ export class MetaProfileService {
     connection: Connection,
     peerId: string,
   ): Promise<PeerProfile | null> {
-    // Messenger user nodes expose name/first_name/last_name/profile_pic;
-    // Instagram user nodes expose name/username/profile_pic.
+    // The Messenger User Profile node only exposes first_name/last_name/
+    // profile_pic — it has NO combined `name` field, and asking for a
+    // nonexistent field makes Graph reject the whole request (error #100), which
+    // is why Messenger threads were falling back to the raw PSID. We compose the
+    // name from first+last below. Instagram user nodes do expose name/username.
     const fields =
       connection.channel === ChannelEnum.facebook_page
-        ? 'name,first_name,last_name,profile_pic'
+        ? 'first_name,last_name,profile_pic'
         : 'name,username,profile_pic';
 
     try {

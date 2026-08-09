@@ -22,6 +22,7 @@ export interface UpsertIdentityInput {
   handle?: string | null;
   profileName?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
 }
 
 // A contact plus every channel identity attached to it — the shape the UI needs
@@ -81,6 +82,20 @@ export class ContactsService {
           `Contact ${existing.contactId} referenced by identity ${existing.id} not found`,
         );
       }
+      // Backfill the central contact once the profile resolves — webhooks first
+      // deliver only the id, so a contact may have been created with an empty
+      // name/avatar. Only fill when still empty (never clobber a real value).
+      const patch: { displayName?: string; avatarUrl?: string } = {};
+      if (!contact.displayName && input.profileName) {
+        patch.displayName = input.profileName;
+      }
+      if (!contact.avatarUrl && input.avatarUrl) {
+        patch.avatarUrl = input.avatarUrl;
+      }
+      if (Object.keys(patch).length > 0) {
+        await this.contactRepository.update(existing.contactId, patch);
+        Object.assign(contact, patch);
+      }
       return { contact, identity: identity ?? existing };
     }
 
@@ -89,7 +104,7 @@ export class ContactsService {
       displayName: input.profileName ?? null,
       phone: input.phone ?? null,
       email: null,
-      avatarUrl: null,
+      avatarUrl: input.avatarUrl ?? null,
       notes: null,
       mergedIntoContactId: null,
     });

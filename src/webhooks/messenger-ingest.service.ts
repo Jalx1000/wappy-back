@@ -122,19 +122,46 @@ export class MessengerIngestService {
       connection.id,
       psid,
     );
-    if (existing) return existing;
+    if (existing) {
+      // Self-heal: a thread whose name never resolved (lookup failed at
+      // creation, or it predates the profile lookup) still carries only the
+      // PSID. Retry the lookup on the next inbound message and backfill the
+      // conversation + central contact once it succeeds. Best-effort.
+      if (!existing.peerName) {
+        const profile = await this.profileService.fetchProfile(
+          connection,
+          psid,
+        );
+        if (profile?.name) {
+          await this.conversationsRepo.update(existing.id, {
+            peerName: profile.name,
+          });
+          await this.contactsService.upsertIdentity({
+            brandId: connection.brandId,
+            channel: connection.channel,
+            connectionId: connection.id,
+            externalId: psid,
+            profileName: profile.name,
+            avatarUrl: profile.avatarUrl,
+          });
+          existing.peerName = profile.name;
+        }
+      }
+      return existing;
+    }
 
     // New thread → look up the peer's profile (the webhook only carries the
     // PSID) so the inbox shows a name instead of the id. Best-effort.
     const profile = await this.profileService.fetchProfile(connection, psid);
 
-    // Resolve/create the central contact, seeding its display name.
+    // Resolve/create the central contact, seeding its display name + avatar.
     const { contact } = await this.contactsService.upsertIdentity({
       brandId: connection.brandId,
       channel: connection.channel,
       connectionId: connection.id,
       externalId: psid,
       profileName: profile?.name ?? null,
+      avatarUrl: profile?.avatarUrl ?? null,
     });
 
     return this.conversationsRepo.create({

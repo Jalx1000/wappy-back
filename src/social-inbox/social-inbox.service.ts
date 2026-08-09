@@ -58,7 +58,17 @@ export interface UnifiedConversation {
   connectionId: number;
   accountHandle: string;
   peer: string;
-  contact: { id: string; displayName: string | null } | null;
+  contact: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  } | null;
+  /**
+   * Public, clickable profile URL of the person you're chatting with, when one
+   * exists. Instagram → https://instagram.com/{username}. Messenger PSIDs and
+   * WhatsApp phones have no public profile URL, so this stays null there.
+   */
+  profileUrl: string | null;
   lastMessageAt: Date | null;
 }
 
@@ -191,8 +201,10 @@ export class SocialInboxService {
         ? {
             id: conv.contactId,
             displayName: contactById.get(conv.contactId)?.displayName ?? null,
+            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
           }
         : null,
+      profileUrl: null,
       lastMessageAt: conv.lastMessageAt ?? null,
     }));
   }
@@ -234,7 +246,13 @@ export class SocialInboxService {
         ? {
             id: conv.contactId,
             displayName: contactById.get(conv.contactId)?.displayName ?? null,
+            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
           }
+        : null,
+      // Instagram usernames are public → build a clickable profile link. Never
+      // link to the raw numeric IGSID (that's not a valid profile URL).
+      profileUrl: conv.peerUsername
+        ? `https://instagram.com/${conv.peerUsername}`
         : null,
       lastMessageAt: conv.lastMessageAt ?? null,
     }));
@@ -278,8 +296,11 @@ export class SocialInboxService {
         ? {
             id: conv.contactId,
             displayName: contactById.get(conv.contactId)?.displayName ?? null,
+            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
           }
         : null,
+      // Messenger PSIDs are opaque/page-scoped — no public profile URL exists.
+      profileUrl: null,
       lastMessageAt: conv.lastMessageAt ?? null,
     }));
   }
