@@ -5,6 +5,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { RealtimeService } from '../realtime/realtime.service';
+import { ConversationAssignmentRepository } from '../conversation-assignments/infrastructure/persistence/conversation-assignment.repository';
 import { ConnectionsRepository } from '../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ChannelEnum } from '../connections/domain/channel.enum';
 import { Connection } from '../connections/domain/connection';
@@ -73,6 +74,8 @@ export interface UnifiedConversation {
   lastMessage: string | null;
   /** Type of the most recent message (text/image/video/audio/document…). */
   lastMessageType: string | null;
+  /** Who the conversation is assigned to (agent and/or team), or null. */
+  assignment: { userId: number | null; teamId: string | null } | null;
   lastMessageAt: Date | null;
 }
 
@@ -124,6 +127,7 @@ export class SocialInboxService {
     private readonly whatsappSend: WhatsappSendService,
     private readonly instagramSend: InstagramSendService,
     private readonly messengerSend: MessengerSendService,
+    private readonly assignmentRepo: ConversationAssignmentRepository,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
@@ -162,10 +166,76 @@ export class SocialInboxService {
       this.collectMessenger(scoped),
     ]);
 
-    return [...whatsapp, ...instagram, ...messenger].sort(
+    const combined = [...whatsapp, ...instagram, ...messenger];
+
+    // Enrich with assignment (one row per conversation, keyed by id).
+    const assignments = await this.assignmentRepo.findByConversationIds(
+      combined.map((c) => c.id),
+    );
+    const assignmentByConv = new Map(
+      assignments.map((a) => [a.conversationId, a]),
+    );
+    for (const c of combined) {
+      const a = assignmentByConv.get(c.id);
+      c.assignment = a
+        ? { userId: a.assignedUserId ?? null, teamId: a.assignedTeamId ?? null }
+        : null;
+    }
+
+    return combined.sort(
       (a, b) =>
         (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0),
     );
+  }
+
+  /**
+   * Assigns a conversation to an agent and/or a team (either may be null to
+   * clear). Brand-scoped via the conversation's connection, then emits a
+   * realtime `conversation:updated` so open inboxes refresh.
+   */
+  async assign(
+    brandId: number,
+    conversationId: string,
+    channel: string,
+    input: { assigneeUserId?: number | null; teamId?: string | null },
+  ): Promise<UnifiedConversation['assignment']> {
+    // Reuse the per-channel scope resolvers to enforce brand ownership.
+    let connectionId: number;
+    if (channel === ChannelEnum.whatsapp) {
+      connectionId = (await this.resolveScopedWhatsapp(brandId, conversationId))
+        .connection.id;
+    } else if (INSTAGRAM_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedInstagram(brandId, conversationId)
+      ).connection.id;
+    } else if (MESSENGER_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedMessenger(brandId, conversationId)
+      ).connection.id;
+    } else {
+      throw new BadRequestException(`Unsupported channel "${channel}"`);
+    }
+
+    const saved = await this.assignmentRepo.upsert({
+      conversationId,
+      channel,
+      brandId,
+      assignedUserId: input.assigneeUserId ?? null,
+      assignedTeamId: input.teamId ?? null,
+    });
+
+    this.realtime?.emitConversationUpdated({
+      brandId,
+      channel,
+      connectionId,
+      conversationId,
+      lastMessageAt: null,
+    });
+
+    return {
+      userId: saved.assignedUserId ?? null,
+      teamId: saved.assignedTeamId ?? null,
+    };
   }
 
   /** Messages of a thread, oldest first — brand-scoped for isolation. */
@@ -238,6 +308,7 @@ export class SocialInboxService {
         profileUrl: null,
         lastMessage: preview.text,
         lastMessageType: preview.type,
+        assignment: null,
         lastMessageAt: conv.lastMessageAt ?? null,
       };
     });
@@ -297,6 +368,7 @@ export class SocialInboxService {
           : null,
         lastMessage: preview.text,
         lastMessageType: preview.type,
+        assignment: null,
         lastMessageAt: conv.lastMessageAt ?? null,
       };
     });
@@ -354,6 +426,7 @@ export class SocialInboxService {
         profileUrl: null,
         lastMessage: preview.text,
         lastMessageType: preview.type,
+        assignment: null,
         lastMessageAt: conv.lastMessageAt ?? null,
       };
     });

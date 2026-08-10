@@ -92,8 +92,11 @@ import { RealtimeModule } from './realtime/realtime.module';
 
 import { InvitationsModule } from './invitations/invitations.module';
 
+import { TeamsModule } from './teams/teams.module';
+
 @Module({
   imports: [
+    TeamsModule,
     InvitationsModule,
     RealtimeModule,
     MaintenanceModule,

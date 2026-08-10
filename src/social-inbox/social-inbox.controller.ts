@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -25,6 +26,7 @@ import { WhatsappMediaService } from './whatsapp-media.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { SendLocationDto } from './dto/send-location.dto';
 import { SendMediaDto } from './dto/send-media.dto';
+import { AssignConversationDto } from './dto/assign-conversation.dto';
 
 @ApiTags('Social Inbox')
 @ApiBearerAuth()
@@ -93,6 +95,18 @@ export class SocialInboxController {
     @Body() dto: SendMessageDto,
   ) {
     return this.service.sendMessage(brand.id, id, dto.channel, dto.text);
+  }
+
+  @Patch('conversations/:id/assignment')
+  assign(
+    @CurrentBrand() brand: Brand,
+    @Param('id') id: string,
+    @Body() dto: AssignConversationDto,
+  ) {
+    return this.service.assign(brand.id, id, dto.channel, {
+      assigneeUserId: dto.assigneeUserId,
+      teamId: dto.teamId,
+    });
   }
 
   @Post('conversations/:id/location')

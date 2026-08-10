@@ -9,6 +9,7 @@ import { RelationalInstagramConversationPersistenceModule } from '../instagram-c
 import { RelationalInstagramMessagePersistenceModule } from '../instagram-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalMessengerConversationPersistenceModule } from '../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalMessengerMessagePersistenceModule } from '../messenger-messages/infrastructure/persistence/relational/relational-persistence.module';
+import { RelationalConversationAssignmentPersistenceModule } from '../conversation-assignments/infrastructure/persistence/relational/relational-persistence.module';
 import { SocialInboxController } from './social-inbox.controller';
 import { SocialInboxService } from './social-inbox.service';
 import { WhatsappSendService } from './whatsapp-send.service';
@@ -28,6 +29,7 @@ import { MessengerSendService } from './messenger-send.service';
     RelationalInstagramMessagePersistenceModule,
     RelationalMessengerConversationPersistenceModule,
     RelationalMessengerMessagePersistenceModule,
+    RelationalConversationAssignmentPersistenceModule,
   ],
   controllers: [SocialInboxController],
   providers: [

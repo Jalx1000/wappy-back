@@ -8,6 +8,7 @@ import { InstagramConversationRepository } from '../instagram-conversations/infr
 import { InstagramMessageRepository } from '../instagram-messages/infrastructure/persistence/instagram-message.repository';
 import { MessengerConversationRepository } from '../messenger-conversations/infrastructure/persistence/messenger-conversation.repository';
 import { MessengerMessageRepository } from '../messenger-messages/infrastructure/persistence/messenger-message.repository';
+import { ConversationAssignmentRepository } from '../conversation-assignments/infrastructure/persistence/conversation-assignment.repository';
 import { WhatsappSendService } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
@@ -79,6 +80,12 @@ const makeService = () => {
     sendText: jest.fn().mockResolvedValue('fb.mid.sent'),
   } as unknown as jest.Mocked<MessengerSendService>;
 
+  const assignmentRepo = {
+    findByConversationIds: jest.fn().mockResolvedValue([]),
+    findByConversationId: jest.fn().mockResolvedValue(null),
+    upsert: jest.fn(),
+  } as unknown as jest.Mocked<ConversationAssignmentRepository>;
+
   const service = new SocialInboxService(
     connectionsRepo,
     conversationsRepo,
@@ -91,6 +98,7 @@ const makeService = () => {
     whatsappSend,
     instagramSend,
     messengerSend,
+    assignmentRepo,
   );
   return {
     service,
