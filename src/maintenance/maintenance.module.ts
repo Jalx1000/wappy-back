@@ -4,6 +4,7 @@ import { RelationalContactPersistenceModule } from '../contacts/infrastructure/p
 import { RelationalInstagramConversationPersistenceModule } from '../instagram-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalMessengerConversationPersistenceModule } from '../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { EncryptionModule } from '../encryption/encryption.module';
+import { FilesModule } from '../files/files.module';
 import { MetaProfileService } from '../webhooks/meta-profile.service';
 import { MetaProfileBackfillService } from '../database/backfill/meta-profile-backfill.service';
 import { MaintenanceController } from './maintenance.controller';
@@ -18,6 +19,7 @@ import { MaintenanceController } from './maintenance.controller';
     RelationalInstagramConversationPersistenceModule,
     RelationalMessengerConversationPersistenceModule,
     EncryptionModule,
+    FilesModule,
   ],
   controllers: [MaintenanceController],
   providers: [MetaProfileService, MetaProfileBackfillService],
