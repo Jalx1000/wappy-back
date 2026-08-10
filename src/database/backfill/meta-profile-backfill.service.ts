@@ -17,6 +17,12 @@ export interface BackfillSummary {
   messenger: BackfillCount;
 }
 
+/** True when the avatar is already stored permanently in our storage (served via
+ *  /media-file/:id). Temp Meta CDN urls or nulls are NOT permanent → re-capture. */
+function isStoredAvatar(url: string | null | undefined): boolean {
+  return !!url && url.includes('/media-file/');
+}
+
 /**
  * Backfill for IG/Messenger threads: resolves the display **name** and the
  * **profile photo** for contacts that are still missing either. Photos are
@@ -58,8 +64,12 @@ export class MetaProfileBackfillService {
       const contact = conv.contactId
         ? await this.contactRepo.findById(conv.contactId)
         : null;
-      if (contact?.displayName && contact?.avatarUrl && conv.peerUsername) {
-        continue; // already complete
+      if (
+        contact?.displayName &&
+        isStoredAvatar(contact?.avatarUrl) &&
+        conv.peerUsername
+      ) {
+        continue; // already complete (name + permanently-stored avatar)
       }
 
       const connection = await this.connectionsRepo.findById(conv.connectionId);
@@ -99,8 +109,12 @@ export class MetaProfileBackfillService {
       const contact = conv.contactId
         ? await this.contactRepo.findById(conv.contactId)
         : null;
-      if (contact?.displayName && contact?.avatarUrl && conv.peerName) {
-        continue; // already complete
+      if (
+        contact?.displayName &&
+        isStoredAvatar(contact?.avatarUrl) &&
+        conv.peerName
+      ) {
+        continue; // already complete (name + permanently-stored avatar)
       }
 
       const connection = await this.connectionsRepo.findById(conv.connectionId);
@@ -148,10 +162,12 @@ export class MetaProfileBackfillService {
 
     const patch: { displayName?: string; avatarUrl?: string } = {};
     if (!c.displayName && name) patch.displayName = name;
-    if (!c.avatarUrl && avatarUrl) {
+    // Re-capture whenever the stored avatar isn't already permanent (missing, or
+    // a stale Meta CDN url from an earlier capture).
+    if (!isStoredAvatar(c.avatarUrl) && avatarUrl) {
       const permanent =
         await this.fileStorage.storeUrlAndGetServedUrl(avatarUrl);
-      patch.avatarUrl = permanent ?? avatarUrl;
+      if (permanent) patch.avatarUrl = permanent;
     }
     if (Object.keys(patch).length === 0) return false;
 
