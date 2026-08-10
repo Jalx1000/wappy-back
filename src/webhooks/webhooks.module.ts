@@ -9,6 +9,7 @@ import { RelationalInstagramMessagePersistenceModule } from '../instagram-messag
 import { RelationalMessengerConversationPersistenceModule } from '../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalMessengerMessagePersistenceModule } from '../messenger-messages/infrastructure/persistence/relational/relational-persistence.module';
 import { QueueModule } from '../queues/queue.module';
+import { FilesModule } from '../files/files.module';
 import { TiktokWebhookController } from './tiktok-webhook.controller';
 import { TiktokWebhookService } from './tiktok-webhook.service';
 import { WhatsappWebhookController } from './whatsapp-webhook.controller';
@@ -34,6 +35,7 @@ import { MetaProfileService } from './meta-profile.service';
     RelationalMessengerMessagePersistenceModule,
     EncryptionModule,
     QueueModule,
+    FilesModule,
   ],
   controllers: [
     TiktokWebhookController,

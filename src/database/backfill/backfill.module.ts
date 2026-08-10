@@ -5,7 +5,9 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { TypeOrmConfigService } from '../typeorm-config.service';
 import databaseConfig from '../config/database.config';
 import appConfig from '../../config/app.config';
+import fileConfig from '../../files/config/file.config';
 import { EncryptionModule } from '../../encryption/encryption.module';
+import { FilesModule } from '../../files/files.module';
 import { RelationalContactPersistenceModule } from '../../contacts/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalInstagramConversationPersistenceModule } from '../../instagram-conversations/infrastructure/persistence/relational/relational-persistence.module';
 import { RelationalMessengerConversationPersistenceModule } from '../../messenger-conversations/infrastructure/persistence/relational/relational-persistence.module';
@@ -20,7 +22,7 @@ import { MetaProfileBackfillService } from './meta-profile-backfill.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, appConfig],
+      load: [databaseConfig, appConfig, fileConfig],
       envFilePath: ['.env'],
     }),
     TypeOrmModule.forRootAsync({
@@ -34,6 +36,7 @@ import { MetaProfileBackfillService } from './meta-profile-backfill.service';
     RelationalInstagramConversationPersistenceModule,
     RelationalMessengerConversationPersistenceModule,
     ConnectionsRelationalPersistenceModule,
+    FilesModule,
   ],
   providers: [MetaProfileService, MetaProfileBackfillService],
 })

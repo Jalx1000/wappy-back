@@ -8,6 +8,7 @@ import { InstagramConversation } from '../instagram-conversations/domain/instagr
 import { InstagramMessageRepository } from '../instagram-messages/infrastructure/persistence/instagram-message.repository';
 import { IgMessagingItem } from './instagram-webhook.service';
 import { MetaProfileService } from './meta-profile.service';
+import { FileStorageService } from '../files/file-storage.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 /**
@@ -26,8 +27,16 @@ export class InstagramIngestService {
     private readonly conversationsRepo: InstagramConversationRepository,
     private readonly messagesRepo: InstagramMessageRepository,
     private readonly profileService: MetaProfileService,
+    private readonly fileStorage: FileStorageService,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
+
+  /** Persists the (expiring) Meta avatar url into our storage; returns the
+   *  permanent served url, or the original as a best-effort fallback. */
+  private async permanentAvatar(url: string | null): Promise<string | null> {
+    if (!url) return null;
+    return (await this.fileStorage.storeUrlAndGetServedUrl(url)) ?? url;
+  }
 
   /** Handles one entry[].messaging[] item (a DM, an echo of ours, a reaction…). */
   async handleMessaging(
@@ -134,6 +143,7 @@ export class InstagramIngestService {
       externalId: igUserId,
       profileName: profile?.name ?? profile?.username ?? null,
       handle: profile?.username ?? null,
+      avatarUrl: await this.permanentAvatar(profile?.avatarUrl ?? null),
     });
 
     return this.conversationsRepo.create({

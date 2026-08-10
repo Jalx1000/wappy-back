@@ -24,6 +24,9 @@ export abstract class MessengerConversationRepository {
   // Backfill: threads whose peer name was never resolved (only the id is known).
   abstract findMissingProfile(): Promise<MessengerConversation[]>;
 
+  // Backfill (avatars): every thread — the caller skips ones already complete.
+  abstract findAll(): Promise<MessengerConversation[]>;
+
   abstract update(
     id: MessengerConversation['id'],
     payload: Partial<MessengerConversation>,

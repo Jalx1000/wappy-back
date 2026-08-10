@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConnectionsRepository } from '../../connections/infrastructure/persistence/relational/repositories/connections.repository';
 import { ContactRepository } from '../../contacts/infrastructure/persistence/contact.repository';
+import { Contact } from '../../contacts/domain/contact';
 import { InstagramConversationRepository } from '../../instagram-conversations/infrastructure/persistence/instagram-conversation.repository';
 import { MessengerConversationRepository } from '../../messenger-conversations/infrastructure/persistence/messenger-conversation.repository';
 import { MetaProfileService } from '../../webhooks/meta-profile.service';
+import { FileStorageService } from '../../files/file-storage.service';
 
 export interface BackfillCount {
   found: number;
@@ -16,12 +18,14 @@ export interface BackfillSummary {
 }
 
 /**
- * One-off backfill: resolves the display name for IG/Messenger threads created
- * before the profile lookup existed (they only stored the raw IGSID/PSID). For
- * each thread with a null peer name it calls the Graph profile lookup and, on
- * success, writes the name onto the conversation and seeds the contact's
- * displayName when it is still empty. Best-effort per row — a failed lookup
- * (privacy, closed 24h window, missing permission) just leaves that thread as-is.
+ * Backfill for IG/Messenger threads: resolves the display **name** and the
+ * **profile photo** for contacts that are still missing either. Photos are
+ * downloaded into our own storage (FileStorageService) so their URLs never
+ * expire — the raw Meta CDN url is short-lived. Contacts that already have both
+ * a name and an avatar are skipped (no Graph call). Best-effort per row.
+ *
+ * WhatsApp is intentionally excluded: the Cloud API does not expose a contact's
+ * profile photo, so there is nothing to backfill there.
  *
  * Run with:  npm run backfill:meta-profiles
  */
@@ -35,6 +39,7 @@ export class MetaProfileBackfillService {
     private readonly igConversationsRepo: InstagramConversationRepository,
     private readonly messengerConversationsRepo: MessengerConversationRepository,
     private readonly profileService: MetaProfileService,
+    private readonly fileStorage: FileStorageService,
   ) {}
 
   async run(): Promise<BackfillSummary> {
@@ -45,13 +50,18 @@ export class MetaProfileBackfillService {
   }
 
   private async backfillInstagram(): Promise<BackfillCount> {
-    const conversations = await this.igConversationsRepo.findMissingProfile();
-    this.logger.log(
-      `Instagram: ${conversations.length} threads missing a profile name`,
-    );
+    const conversations = await this.igConversationsRepo.findAll();
+    this.logger.log(`Instagram: scanning ${conversations.length} threads`);
 
     let updated = 0;
     for (const conv of conversations) {
+      const contact = conv.contactId
+        ? await this.contactRepo.findById(conv.contactId)
+        : null;
+      if (contact?.displayName && contact?.avatarUrl && conv.peerUsername) {
+        continue; // already complete
+      }
+
       const connection = await this.connectionsRepo.findById(conv.connectionId);
       if (!connection) continue;
 
@@ -59,29 +69,40 @@ export class MetaProfileBackfillService {
         connection,
         conv.igUserId,
       );
-      const peer = profile?.username ?? profile?.name ?? null;
-      if (!peer) continue;
+      if (!profile) continue;
 
-      await this.igConversationsRepo.update(conv.id, { peerUsername: peer });
-      await this.seedContactName(
-        conv.contactId,
-        profile?.name ?? profile?.username ?? null,
-      );
-      updated++;
+      const peer = profile.username ?? profile.name ?? null;
+      if (!conv.peerUsername && peer) {
+        await this.igConversationsRepo.update(conv.id, { peerUsername: peer });
+      }
+      if (
+        await this.seedContact(
+          conv.contactId,
+          contact,
+          profile.name ?? profile.username ?? null,
+          profile.avatarUrl,
+        )
+      ) {
+        updated++;
+      }
     }
     this.logger.log(`Instagram: updated ${updated}/${conversations.length}`);
     return { found: conversations.length, updated };
   }
 
   private async backfillMessenger(): Promise<BackfillCount> {
-    const conversations =
-      await this.messengerConversationsRepo.findMissingProfile();
-    this.logger.log(
-      `Messenger: ${conversations.length} threads missing a profile name`,
-    );
+    const conversations = await this.messengerConversationsRepo.findAll();
+    this.logger.log(`Messenger: scanning ${conversations.length} threads`);
 
     let updated = 0;
     for (const conv of conversations) {
+      const contact = conv.contactId
+        ? await this.contactRepo.findById(conv.contactId)
+        : null;
+      if (contact?.displayName && contact?.avatarUrl && conv.peerName) {
+        continue; // already complete
+      }
+
       const connection = await this.connectionsRepo.findById(conv.connectionId);
       if (!connection) continue;
 
@@ -89,26 +110,52 @@ export class MetaProfileBackfillService {
         connection,
         conv.psid,
       );
-      const name = profile?.name ?? null;
-      if (!name) continue;
+      if (!profile) continue;
 
-      await this.messengerConversationsRepo.update(conv.id, { peerName: name });
-      await this.seedContactName(conv.contactId, name);
-      updated++;
+      if (!conv.peerName && profile.name) {
+        await this.messengerConversationsRepo.update(conv.id, {
+          peerName: profile.name,
+        });
+      }
+      if (
+        await this.seedContact(
+          conv.contactId,
+          contact,
+          profile.name,
+          profile.avatarUrl,
+        )
+      ) {
+        updated++;
+      }
     }
     this.logger.log(`Messenger: updated ${updated}/${conversations.length}`);
     return { found: conversations.length, updated };
   }
 
-  /** Sets the central contact's displayName only when it is still empty. */
-  private async seedContactName(
+  /**
+   * Fills the contact's displayName / avatarUrl when still empty. The avatar is
+   * stored permanently first. Returns true if the contact was updated.
+   */
+  private async seedContact(
     contactId: string | null | undefined,
+    contact: Contact | null,
     name: string | null,
-  ): Promise<void> {
-    if (!contactId || !name) return;
-    const contact = await this.contactRepo.findById(contactId);
-    if (contact && !contact.displayName) {
-      await this.contactRepo.update(contactId, { displayName: name });
+    avatarUrl: string | null,
+  ): Promise<boolean> {
+    if (!contactId) return false;
+    const c = contact ?? (await this.contactRepo.findById(contactId));
+    if (!c) return false;
+
+    const patch: { displayName?: string; avatarUrl?: string } = {};
+    if (!c.displayName && name) patch.displayName = name;
+    if (!c.avatarUrl && avatarUrl) {
+      const permanent =
+        await this.fileStorage.storeUrlAndGetServedUrl(avatarUrl);
+      patch.avatarUrl = permanent ?? avatarUrl;
     }
+    if (Object.keys(patch).length === 0) return false;
+
+    await this.contactRepo.update(contactId, patch);
+    return true;
   }
 }

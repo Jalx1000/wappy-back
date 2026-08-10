@@ -55,6 +55,11 @@ export class MessengerConversationRelationalRepository implements MessengerConve
     return entities.map((e) => MessengerConversationMapper.toDomain(e));
   }
 
+  async findAll(): Promise<MessengerConversation[]> {
+    const entities = await this.repo.find();
+    return entities.map((e) => MessengerConversationMapper.toDomain(e));
+  }
+
   async update(
     id: MessengerConversation['id'],
     payload: Partial<MessengerConversation>,

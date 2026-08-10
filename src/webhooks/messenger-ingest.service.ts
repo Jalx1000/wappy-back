@@ -8,6 +8,7 @@ import { MessengerConversation } from '../messenger-conversations/domain/messeng
 import { MessengerMessageRepository } from '../messenger-messages/infrastructure/persistence/messenger-message.repository';
 import { MsgrMessagingItem } from './messenger-webhook.service';
 import { MetaProfileService } from './meta-profile.service';
+import { FileStorageService } from '../files/file-storage.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 /**
@@ -26,8 +27,16 @@ export class MessengerIngestService {
     private readonly conversationsRepo: MessengerConversationRepository,
     private readonly messagesRepo: MessengerMessageRepository,
     private readonly profileService: MetaProfileService,
+    private readonly fileStorage: FileStorageService,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
+
+  /** Persists the (expiring) Meta avatar url into our storage; returns the
+   *  permanent served url, or the original as a best-effort fallback. */
+  private async permanentAvatar(url: string | null): Promise<string | null> {
+    if (!url) return null;
+    return (await this.fileStorage.storeUrlAndGetServedUrl(url)) ?? url;
+  }
 
   /** Handles one entry[].messaging[] item (a message, echo, reaction, postback…). */
   async handleMessaging(
@@ -142,7 +151,7 @@ export class MessengerIngestService {
             connectionId: connection.id,
             externalId: psid,
             profileName: profile.name,
-            avatarUrl: profile.avatarUrl,
+            avatarUrl: await this.permanentAvatar(profile.avatarUrl),
           });
           existing.peerName = profile.name;
         }
@@ -161,7 +170,7 @@ export class MessengerIngestService {
       connectionId: connection.id,
       externalId: psid,
       profileName: profile?.name ?? null,
-      avatarUrl: profile?.avatarUrl ?? null,
+      avatarUrl: await this.permanentAvatar(profile?.avatarUrl ?? null),
     });
 
     return this.conversationsRepo.create({

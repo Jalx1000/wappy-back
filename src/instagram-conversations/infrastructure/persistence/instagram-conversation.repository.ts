@@ -24,6 +24,9 @@ export abstract class InstagramConversationRepository {
   // Backfill: threads whose peer name was never resolved (only the id is known).
   abstract findMissingProfile(): Promise<InstagramConversation[]>;
 
+  // Backfill (avatars): every thread — the caller skips ones already complete.
+  abstract findAll(): Promise<InstagramConversation[]>;
+
   abstract update(
     id: InstagramConversation['id'],
     payload: Partial<InstagramConversation>,

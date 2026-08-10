@@ -55,6 +55,11 @@ export class InstagramConversationRelationalRepository implements InstagramConve
     return entities.map((e) => InstagramConversationMapper.toDomain(e));
   }
 
+  async findAll(): Promise<InstagramConversation[]> {
+    const entities = await this.repo.find();
+    return entities.map((e) => InstagramConversationMapper.toDomain(e));
+  }
+
   async update(
     id: InstagramConversation['id'],
     payload: Partial<InstagramConversation>,
