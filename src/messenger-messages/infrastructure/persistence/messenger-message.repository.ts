@@ -17,6 +17,11 @@ export abstract class MessengerMessageRepository {
     conversationId: string,
   ): Promise<MessengerMessage[]>;
 
+  // Inbox list preview: the newest message of each given conversation.
+  abstract findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<MessengerMessage[]>;
+
   // Partial (not DeepPartial) so the jsonb `payload` field can be set wholesale.
   abstract update(
     id: MessengerMessage['id'],

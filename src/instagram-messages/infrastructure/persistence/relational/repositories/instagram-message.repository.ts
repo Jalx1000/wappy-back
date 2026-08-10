@@ -40,6 +40,20 @@ export class InstagramMessageRelationalRepository implements InstagramMessageRep
     return entities.map((e) => InstagramMessageMapper.toDomain(e));
   }
 
+  async findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<InstagramMessage[]> {
+    if (conversationIds.length === 0) return [];
+    const entities = await this.repo
+      .createQueryBuilder('m')
+      .where('m.conversationId IN (:...ids)', { ids: conversationIds })
+      .distinctOn(['m.conversationId'])
+      .orderBy('m.conversationId', 'ASC')
+      .addOrderBy('m.sentAt', 'DESC')
+      .getMany();
+    return entities.map((e) => InstagramMessageMapper.toDomain(e));
+  }
+
   async update(
     id: InstagramMessage['id'],
     payload: Partial<InstagramMessage>,

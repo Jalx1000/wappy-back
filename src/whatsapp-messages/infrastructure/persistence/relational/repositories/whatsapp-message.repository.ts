@@ -76,6 +76,20 @@ export class WhatsappMessageRelationalRepository implements WhatsappMessageRepos
     return entities.map((entity) => WhatsappMessageMapper.toDomain(entity));
   }
 
+  async findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<WhatsappMessage[]> {
+    if (conversationIds.length === 0) return [];
+    const entities = await this.whatsappMessageRepository
+      .createQueryBuilder('m')
+      .where('m.conversationId IN (:...ids)', { ids: conversationIds })
+      .distinctOn(['m.conversationId'])
+      .orderBy('m.conversationId', 'ASC')
+      .addOrderBy('m.sentAt', 'DESC')
+      .getMany();
+    return entities.map((entity) => WhatsappMessageMapper.toDomain(entity));
+  }
+
   async update(
     id: WhatsappMessage['id'],
     payload: Partial<WhatsappMessage>,

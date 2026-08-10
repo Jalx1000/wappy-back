@@ -17,6 +17,10 @@ export abstract class InstagramMessageRepository {
     conversationId: string,
   ): Promise<InstagramMessage[]>;
 
+  abstract findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<InstagramMessage[]>;
+
   // Partial (not DeepPartial) so the jsonb `payload` field can be set wholesale.
   abstract update(
     id: InstagramMessage['id'],

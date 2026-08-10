@@ -69,6 +69,10 @@ export interface UnifiedConversation {
    * WhatsApp phones have no public profile URL, so this stays null there.
    */
   profileUrl: string | null;
+  /** Short preview of the most recent message (or a media label). */
+  lastMessage: string | null;
+  /** Type of the most recent message (text/image/video/audio/document…). */
+  lastMessageType: string | null;
   lastMessageAt: Date | null;
 }
 
@@ -84,6 +88,26 @@ export interface UnifiedMessage {
   revoked: boolean;
   edited: boolean;
   sentAt: Date;
+}
+
+/** Short inbox-list preview from a message: its text, or a label for media. */
+function messagePreview(
+  m: { content?: string | null; messageType: string } | undefined,
+): { text: string | null; type: string | null } {
+  if (!m) return { text: null, type: null };
+  const content = m.content?.trim();
+  if (content) return { text: content, type: m.messageType };
+  const labels: Record<string, string> = {
+    image: '📷 Foto',
+    sticker: '📷 Sticker',
+    video: '🎥 Video',
+    audio: '🎙️ Audio',
+    voice: '🎙️ Audio',
+    document: '📄 Documento',
+    file: '📄 Documento',
+    location: '📍 Ubicación',
+  };
+  return { text: labels[m.messageType] ?? '📎 Adjunto', type: m.messageType };
 }
 
 @Injectable()
@@ -191,22 +215,32 @@ export class SocialInboxService {
       : [];
     const contactById = new Map(contacts.map((c) => [c.id, c]));
 
-    return conversations.map((conv) => ({
-      id: conv.id,
-      channel: ChannelEnum.whatsapp,
-      connectionId: conv.connectionId,
-      accountHandle: handleByConnId.get(conv.connectionId) ?? '',
-      peer: conv.waUserPhone,
-      contact: conv.contactId
-        ? {
-            id: conv.contactId,
-            displayName: contactById.get(conv.contactId)?.displayName ?? null,
-            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
-          }
-        : null,
-      profileUrl: null,
-      lastMessageAt: conv.lastMessageAt ?? null,
-    }));
+    const latest = await this.messagesRepo.findLatestByConversationIds(
+      conversations.map((c) => c.id),
+    );
+    const latestByConv = new Map(latest.map((m) => [m.conversationId, m]));
+
+    return conversations.map((conv) => {
+      const preview = messagePreview(latestByConv.get(conv.id));
+      return {
+        id: conv.id,
+        channel: ChannelEnum.whatsapp,
+        connectionId: conv.connectionId,
+        accountHandle: handleByConnId.get(conv.connectionId) ?? '',
+        peer: conv.waUserPhone,
+        contact: conv.contactId
+          ? {
+              id: conv.contactId,
+              displayName: contactById.get(conv.contactId)?.displayName ?? null,
+              avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
+            }
+          : null,
+        profileUrl: null,
+        lastMessage: preview.text,
+        lastMessageType: preview.type,
+        lastMessageAt: conv.lastMessageAt ?? null,
+      };
+    });
   }
 
   // ── Instagram source ─────────────────────────────────────────────────────
@@ -235,27 +269,37 @@ export class SocialInboxService {
       : [];
     const contactById = new Map(contacts.map((c) => [c.id, c]));
 
-    return conversations.map((conv) => ({
-      id: conv.id,
-      channel:
-        connById.get(conv.connectionId)?.channel ?? ChannelEnum.instagram,
-      connectionId: conv.connectionId,
-      accountHandle: connById.get(conv.connectionId)?.accountHandle ?? '',
-      peer: conv.peerUsername ?? conv.igUserId,
-      contact: conv.contactId
-        ? {
-            id: conv.contactId,
-            displayName: contactById.get(conv.contactId)?.displayName ?? null,
-            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
-          }
-        : null,
-      // Instagram usernames are public → build a clickable profile link. Never
-      // link to the raw numeric IGSID (that's not a valid profile URL).
-      profileUrl: conv.peerUsername
-        ? `https://instagram.com/${conv.peerUsername}`
-        : null,
-      lastMessageAt: conv.lastMessageAt ?? null,
-    }));
+    const latest = await this.igMessagesRepo.findLatestByConversationIds(
+      conversations.map((c) => c.id),
+    );
+    const latestByConv = new Map(latest.map((m) => [m.conversationId, m]));
+
+    return conversations.map((conv) => {
+      const preview = messagePreview(latestByConv.get(conv.id));
+      return {
+        id: conv.id,
+        channel:
+          connById.get(conv.connectionId)?.channel ?? ChannelEnum.instagram,
+        connectionId: conv.connectionId,
+        accountHandle: connById.get(conv.connectionId)?.accountHandle ?? '',
+        peer: conv.peerUsername ?? conv.igUserId,
+        contact: conv.contactId
+          ? {
+              id: conv.contactId,
+              displayName: contactById.get(conv.contactId)?.displayName ?? null,
+              avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
+            }
+          : null,
+        // Instagram usernames are public → build a clickable profile link. Never
+        // link to the raw numeric IGSID (that's not a valid profile URL).
+        profileUrl: conv.peerUsername
+          ? `https://instagram.com/${conv.peerUsername}`
+          : null,
+        lastMessage: preview.text,
+        lastMessageType: preview.type,
+        lastMessageAt: conv.lastMessageAt ?? null,
+      };
+    });
   }
 
   // ── Messenger source ─────────────────────────────────────────────────────
@@ -285,24 +329,34 @@ export class SocialInboxService {
       : [];
     const contactById = new Map(contacts.map((c) => [c.id, c]));
 
-    return conversations.map((conv) => ({
-      id: conv.id,
-      channel:
-        connById.get(conv.connectionId)?.channel ?? ChannelEnum.facebook_page,
-      connectionId: conv.connectionId,
-      accountHandle: connById.get(conv.connectionId)?.accountHandle ?? '',
-      peer: conv.peerName ?? conv.psid,
-      contact: conv.contactId
-        ? {
-            id: conv.contactId,
-            displayName: contactById.get(conv.contactId)?.displayName ?? null,
-            avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
-          }
-        : null,
-      // Messenger PSIDs are opaque/page-scoped — no public profile URL exists.
-      profileUrl: null,
-      lastMessageAt: conv.lastMessageAt ?? null,
-    }));
+    const latest = await this.messengerMessagesRepo.findLatestByConversationIds(
+      conversations.map((c) => c.id),
+    );
+    const latestByConv = new Map(latest.map((m) => [m.conversationId, m]));
+
+    return conversations.map((conv) => {
+      const preview = messagePreview(latestByConv.get(conv.id));
+      return {
+        id: conv.id,
+        channel:
+          connById.get(conv.connectionId)?.channel ?? ChannelEnum.facebook_page,
+        connectionId: conv.connectionId,
+        accountHandle: connById.get(conv.connectionId)?.accountHandle ?? '',
+        peer: conv.peerName ?? conv.psid,
+        contact: conv.contactId
+          ? {
+              id: conv.contactId,
+              displayName: contactById.get(conv.contactId)?.displayName ?? null,
+              avatarUrl: contactById.get(conv.contactId)?.avatarUrl ?? null,
+            }
+          : null,
+        // Messenger PSIDs are opaque/page-scoped — no public profile URL exists.
+        profileUrl: null,
+        lastMessage: preview.text,
+        lastMessageType: preview.type,
+        lastMessageAt: conv.lastMessageAt ?? null,
+      };
+    });
   }
 
   /**

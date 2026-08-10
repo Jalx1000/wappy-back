@@ -40,6 +40,20 @@ export class MessengerMessageRelationalRepository implements MessengerMessageRep
     return entities.map((e) => MessengerMessageMapper.toDomain(e));
   }
 
+  async findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<MessengerMessage[]> {
+    if (conversationIds.length === 0) return [];
+    const entities = await this.repo
+      .createQueryBuilder('m')
+      .where('m.conversationId IN (:...ids)', { ids: conversationIds })
+      .distinctOn(['m.conversationId'])
+      .orderBy('m.conversationId', 'ASC')
+      .addOrderBy('m.sentAt', 'DESC')
+      .getMany();
+    return entities.map((e) => MessengerMessageMapper.toDomain(e));
+  }
+
   async update(
     id: MessengerMessage['id'],
     payload: Partial<MessengerMessage>,

@@ -30,6 +30,10 @@ export abstract class WhatsappMessageRepository {
     conversationId: string,
   ): Promise<WhatsappMessage[]>;
 
+  abstract findLatestByConversationIds(
+    conversationIds: string[],
+  ): Promise<WhatsappMessage[]>;
+
   // Partial (not DeepPartial) so the jsonb `payload` field (Record) can be set
   // wholesale without DeepPartial recursing into its unknown values.
   abstract update(
