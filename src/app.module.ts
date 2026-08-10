@@ -90,8 +90,11 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 
 import { RealtimeModule } from './realtime/realtime.module';
 
+import { InvitationsModule } from './invitations/invitations.module';
+
 @Module({
   imports: [
+    InvitationsModule,
     RealtimeModule,
     MaintenanceModule,
     SocialInboxModule,
