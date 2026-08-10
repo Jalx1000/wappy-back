@@ -240,10 +240,15 @@ export class MessengerIngestService {
   } {
     const att = message.attachments?.[0];
     if (att) {
+      // Normalize Messenger's attachment types to the ones the clients render.
+      // Messenger sends documents as `file`; images/video/audio map 1:1. GIFs and
+      // stickers arrive as `image` (an animated .gif / sticker url).
+      const raw = att.type ?? 'attachment';
+      const messageType = raw === 'file' ? 'document' : raw;
       return {
         content: message.text ?? null,
         mediaUrl: att.payload?.url ?? null,
-        messageType: att.type ?? 'attachment',
+        messageType,
         payload: { attachments: message.attachments },
       };
     }
