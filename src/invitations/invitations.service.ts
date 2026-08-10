@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -9,13 +10,19 @@ import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { InvitationRepository } from './infrastructure/persistence/invitation.repository';
 import { Invitation } from './domain/invitation';
 import { BrandMembershipsRepository } from '../brands/infrastructure/persistence/relational/repositories/brand-memberships.repository';
+import { BrandsRepository } from '../brands/infrastructure/persistence/relational/repositories/brands.repository';
 import { BrandMemberRoleEnum } from '../brands/domain/brand-membership';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
   constructor(
     private readonly invitationRepository: InvitationRepository,
     private readonly membershipsRepo: BrandMembershipsRepository,
+    private readonly brandsRepo: BrandsRepository,
+    private readonly mailService: MailService,
   ) {}
 
   /** Creates a pending invitation (by email or phone) for a brand. */
@@ -29,7 +36,7 @@ export class InvitationsService {
         errors: { email: 'emailOrPhoneRequired' },
       });
     }
-    return this.invitationRepository.create({
+    const invitation = await this.invitationRepository.create({
       brandId: dto.brandId,
       email: dto.email ?? null,
       phone: dto.phone ?? null,
@@ -38,6 +45,30 @@ export class InvitationsService {
       status: 'pending',
       invitedByUserId,
     });
+
+    // Best-effort email delivery (only for email invites). Never fail the invite
+    // creation because the mail transport is down.
+    if (invitation.email) {
+      try {
+        const brand = await this.brandsRepo.findById(dto.brandId);
+        await this.mailService.brandInvite({
+          to: invitation.email,
+          data: {
+            token: invitation.token!,
+            brandName: brand?.name ?? undefined,
+            role: invitation.role ?? undefined,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Invite email to ${invitation.email} failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    return invitation;
   }
 
   listForBrand(brandId: number): Promise<Invitation[]> {

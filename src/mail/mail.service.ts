@@ -166,4 +166,42 @@ export class MailService {
       },
     });
   }
+
+  /** Invitation to join a brand/workspace. Links to the frontend accept page. */
+  async brandInvite(
+    mailData: MailData<{ token: string; brandName?: string; role?: string }>,
+  ): Promise<void> {
+    const appName = this.configService.get('app.name', { infer: true });
+    const brand = mailData.data.brandName ?? appName;
+    const title = `Te invitaron a ${brand}`;
+
+    const url = new URL(
+      this.configService.getOrThrow('app.frontendDomain', { infer: true }) +
+        '/invite',
+    );
+    url.searchParams.set('token', mailData.data.token);
+
+    await this.mailerService.sendMail({
+      to: mailData.to,
+      subject: title,
+      text: `${title}: ${url.toString()}`,
+      templatePath: path.join(
+        this.configService.getOrThrow('app.workingDirectory', { infer: true }),
+        'src',
+        'mail',
+        'mail-templates',
+        'brand-invite.hbs',
+      ),
+      context: {
+        title,
+        url: url.toString(),
+        actionTitle: 'Aceptar invitación',
+        app_name: appName,
+        text1: `Te invitaron a unirte a ${brand} en ${appName}${
+          mailData.data.role ? ` como ${mailData.data.role}` : ''
+        }.`,
+        text2: 'Haz clic en el botón para aceptar la invitación.',
+      },
+    });
+  }
 }
