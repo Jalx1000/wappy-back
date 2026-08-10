@@ -21,6 +21,12 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
   name: 'user',
 })
 export class UserEntity extends EntityRelationalHelper {
+  @Column({
+    nullable: true,
+    type: String,
+  })
+  availability?: string | null;
+
   @PrimaryGeneratedColumn()
   id: number;
 

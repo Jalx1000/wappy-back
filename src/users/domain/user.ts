@@ -14,6 +14,12 @@ const idType = (databaseConfig() as DatabaseConfig).isDocumentDatabase
 
 export class User {
   @ApiProperty({
+    type: () => String,
+    nullable: true,
+  })
+  availability?: string | null;
+
+  @ApiProperty({
     type: idType,
   })
   id: number | string;
