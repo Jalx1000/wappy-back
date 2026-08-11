@@ -94,8 +94,11 @@ import { InvitationsModule } from './invitations/invitations.module';
 
 import { TeamsModule } from './teams/teams.module';
 
+import { CompaniesModule } from './companies/companies.module';
+
 @Module({
   imports: [
+    CompaniesModule,
     TeamsModule,
     InvitationsModule,
     RealtimeModule,
