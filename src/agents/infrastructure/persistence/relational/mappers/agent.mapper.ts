@@ -7,6 +7,7 @@ export class AgentMapper {
     domainEntity.brandId = raw.brandId;
     domainEntity.name = raw.name;
     domainEntity.enabled = raw.enabled;
+    domainEntity.provider = raw.provider;
     domainEntity.model = raw.model;
     domainEntity.systemPrompt = raw.systemPrompt;
     domainEntity.effort = raw.effort;
@@ -23,6 +24,7 @@ export class AgentMapper {
     persistenceEntity.brandId = domainEntity.brandId;
     persistenceEntity.name = domainEntity.name;
     persistenceEntity.enabled = domainEntity.enabled;
+    persistenceEntity.provider = domainEntity.provider;
     persistenceEntity.model = domainEntity.model;
     persistenceEntity.systemPrompt = domainEntity.systemPrompt;
     persistenceEntity.effort = domainEntity.effort;

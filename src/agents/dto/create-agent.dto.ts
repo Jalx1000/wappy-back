@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -21,7 +22,19 @@ export class CreateAgentDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiPropertyOptional({ default: 'claude-sonnet-4-6' })
+  @ApiPropertyOptional({
+    enum: ['anthropic', 'openai'],
+    default: 'anthropic',
+    description: "LLM provider: 'anthropic' (Claude) or 'openai' (ChatGPT).",
+  })
+  @IsOptional()
+  @IsIn(['anthropic', 'openai'])
+  provider?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Model id. Defaults to claude-sonnet-4-6 (anthropic) or gpt-4o-mini (openai).',
+  })
   @IsOptional()
   @IsString()
   model?: string;

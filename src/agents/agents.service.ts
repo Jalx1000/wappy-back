@@ -4,21 +4,32 @@ import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AgentRepository } from './infrastructure/persistence/agent.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Agent } from './domain/agent';
-import { AgentRuntime, AgentRuntimeResult } from './runtime/agent-runtime';
+import { AgentRuntimeResult } from './runtime/agent-runtime';
+import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
+
+const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
+  anthropic: 'claude-sonnet-4-6',
+  openai: 'gpt-4o-mini',
+};
 
 @Injectable()
 export class AgentsService {
   constructor(
     private readonly agentRepository: AgentRepository,
-    private readonly agentRuntime: AgentRuntime,
+    private readonly runtimes: AgentRuntimeResolver,
   ) {}
 
   create(createAgentDto: CreateAgentDto) {
+    const provider = createAgentDto.provider ?? 'anthropic';
     return this.agentRepository.create({
       brandId: createAgentDto.brandId,
       name: createAgentDto.name,
       enabled: createAgentDto.enabled ?? false,
-      model: createAgentDto.model ?? 'claude-sonnet-4-6',
+      provider,
+      model:
+        createAgentDto.model ??
+        DEFAULT_MODEL_BY_PROVIDER[provider] ??
+        DEFAULT_MODEL_BY_PROVIDER.anthropic,
       systemPrompt: createAgentDto.systemPrompt ?? null,
       effort: createAgentDto.effort ?? null,
       toolsEnabled: createAgentDto.toolsEnabled ?? null,
@@ -63,7 +74,7 @@ export class AgentsService {
     if (!agent) {
       throw new NotFoundException('Agent not found');
     }
-    return this.agentRuntime.run({
+    return this.runtimes.resolve(agent.provider).run({
       agent,
       messages: [{ role: 'user', content: message }],
     });

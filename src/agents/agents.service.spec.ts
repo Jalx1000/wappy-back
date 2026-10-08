@@ -2,18 +2,21 @@ import { NotFoundException } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { AgentRepository } from './infrastructure/persistence/agent.repository';
 import { AgentRuntime } from './runtime/agent-runtime';
+import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
 import { Agent } from './domain/agent';
 
 describe('AgentsService', () => {
   let service: AgentsService;
   let repo: jest.Mocked<AgentRepository>;
   let runtime: jest.Mocked<AgentRuntime>;
+  let resolver: jest.Mocked<AgentRuntimeResolver>;
 
   const sampleAgent: Agent = {
     id: 'agent-1',
     brandId: 7,
     name: 'Soporte',
     enabled: true,
+    provider: 'anthropic',
     model: 'claude-sonnet-4-6',
     systemPrompt: 'Eres un asistente de soporte.',
     effort: null,
@@ -36,7 +39,11 @@ describe('AgentsService', () => {
       run: jest.fn(),
     } as unknown as jest.Mocked<AgentRuntime>;
 
-    service = new AgentsService(repo, runtime);
+    resolver = {
+      resolve: jest.fn().mockReturnValue(runtime),
+    } as unknown as jest.Mocked<AgentRuntimeResolver>;
+
+    service = new AgentsService(repo, resolver);
   });
 
   it('should apply defaults on create (enabled=false, model=sonnet)', async () => {
@@ -49,6 +56,7 @@ describe('AgentsService', () => {
         brandId: 7,
         name: 'Soporte',
         enabled: false,
+        provider: 'anthropic',
         model: 'claude-sonnet-4-6',
         systemPrompt: null,
         effort: null,
@@ -75,6 +83,7 @@ describe('AgentsService', () => {
 
     const result = await service.test('agent-1', 'hola');
 
+    expect(resolver.resolve).toHaveBeenCalledWith('anthropic');
     expect(runtime.run).toHaveBeenCalledWith({
       agent: sampleAgent,
       messages: [{ role: 'user', content: 'hola' }],

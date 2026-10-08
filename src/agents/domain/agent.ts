@@ -22,7 +22,15 @@ export class Agent {
   @ApiProperty({
     type: () => String,
     nullable: false,
-    description: 'Claude model id, e.g. claude-sonnet-4-6',
+    description: "LLM provider: 'anthropic' (Claude) or 'openai' (ChatGPT).",
+  })
+  provider?: string;
+
+  @ApiProperty({
+    type: () => String,
+    nullable: false,
+    description:
+      'Model id for the provider, e.g. claude-sonnet-4-6 or gpt-4o-mini',
   })
   model?: string;
 

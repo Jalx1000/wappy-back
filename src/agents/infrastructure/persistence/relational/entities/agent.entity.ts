@@ -35,6 +35,13 @@ export class AgentEntity extends EntityRelationalHelper {
   @Column({
     nullable: false,
     type: String,
+    default: 'anthropic',
+  })
+  provider?: string;
+
+  @Column({
+    nullable: false,
+    type: String,
     default: 'claude-sonnet-4-6',
   })
   model?: string;
