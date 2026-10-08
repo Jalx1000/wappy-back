@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import {
@@ -14,19 +18,30 @@ const MAX_TOKENS = 1024;
 
 /**
  * ChatGPT / OpenAI runtime, using the official `openai` SDK. Selected per-agent
- * when Agent.provider === 'openai'. Reads OPENAI_API_KEY via ConfigService,
- * mirroring how the Anthropic runtime reads ANTHROPIC_API_KEY.
+ * when Agent.provider === 'openai'. The client is created lazily so the app
+ * boots without OPENAI_API_KEY (the key is only required when an openai agent
+ * actually runs).
  */
 @Injectable()
 export class OpenAiAgentRuntime extends AgentRuntime {
   private readonly logger = new Logger(OpenAiAgentRuntime.name);
-  private readonly client: OpenAI;
+  private client?: OpenAI;
 
   constructor(private readonly config: ConfigService) {
     super();
-    this.client = new OpenAI({
-      apiKey: this.config.getOrThrow<string>('OPENAI_API_KEY'),
-    });
+  }
+
+  private getClient(): OpenAI {
+    if (!this.client) {
+      const apiKey = this.config.get<string>('OPENAI_API_KEY');
+      if (!apiKey || apiKey === 'placeholder-not-set') {
+        throw new ServiceUnavailableException(
+          'OPENAI_API_KEY is not configured',
+        );
+      }
+      this.client = new OpenAI({ apiKey });
+    }
+    return this.client;
   }
 
   async run(input: {
@@ -36,7 +51,7 @@ export class OpenAiAgentRuntime extends AgentRuntime {
     const { agent, messages } = input;
     const system = agent.systemPrompt?.trim() || DEFAULT_SYSTEM;
 
-    const completion = await this.client.chat.completions.create({
+    const completion = await this.getClient().chat.completions.create({
       model: agent.model || DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       messages: [

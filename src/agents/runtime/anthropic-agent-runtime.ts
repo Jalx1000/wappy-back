@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import {
@@ -13,21 +17,31 @@ const DEFAULT_SYSTEM = 'You are a helpful customer-support assistant.';
 const MAX_TOKENS = 1024;
 
 /**
- * Default runtime built on the official Anthropic SDK — mirrors the existing
- * pattern in workers/processors/insight.processor.ts (ANTHROPIC_API_KEY via
- * ConfigService, prompt-cached system block). No tools yet; reply_text only.
- * Tool-use loop lands in C2/C4.
+ * Default runtime built on the official Anthropic SDK — mirrors the pattern in
+ * workers/processors/insight.processor.ts. The client is created lazily so the
+ * app boots fine without ANTHROPIC_API_KEY (the key is only required when an
+ * agent actually runs). No tools yet; reply_text only (tool-use loop lands C2/C4).
  */
 @Injectable()
 export class AnthropicAgentRuntime extends AgentRuntime {
   private readonly logger = new Logger(AnthropicAgentRuntime.name);
-  private readonly anthropic: Anthropic;
+  private client?: Anthropic;
 
   constructor(private readonly config: ConfigService) {
     super();
-    this.anthropic = new Anthropic({
-      apiKey: this.config.getOrThrow<string>('ANTHROPIC_API_KEY'),
-    });
+  }
+
+  private getClient(): Anthropic {
+    if (!this.client) {
+      const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
+      if (!apiKey || apiKey === 'placeholder-not-set') {
+        throw new ServiceUnavailableException(
+          'ANTHROPIC_API_KEY is not configured',
+        );
+      }
+      this.client = new Anthropic({ apiKey });
+    }
+    return this.client;
   }
 
   async run(input: {
@@ -37,7 +51,7 @@ export class AnthropicAgentRuntime extends AgentRuntime {
     const { agent, messages } = input;
     const system = agent.systemPrompt?.trim() || DEFAULT_SYSTEM;
 
-    const message = await this.anthropic.messages.create({
+    const message = await this.getClient().messages.create({
       model: agent.model || DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       system: [
