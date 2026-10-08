@@ -11,9 +11,10 @@ describe('AgentsService', () => {
   let runtime: jest.Mocked<AgentRuntime>;
   let resolver: jest.Mocked<AgentRuntimeResolver>;
 
+  const BRAND = 7;
   const sampleAgent: Agent = {
     id: 'agent-1',
-    brandId: 7,
+    brandId: BRAND,
     name: 'Soporte',
     enabled: true,
     provider: 'anthropic',
@@ -30,6 +31,7 @@ describe('AgentsService', () => {
       create: jest.fn(),
       findAllWithPagination: jest.fn(),
       findById: jest.fn(),
+      findByBrand: jest.fn(),
       findEnabledByBrand: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
@@ -46,42 +48,49 @@ describe('AgentsService', () => {
     service = new AgentsService(repo, resolver);
   });
 
-  it('should apply defaults on create (enabled=false, model=sonnet)', async () => {
+  it('should create with the current brand id and apply defaults', async () => {
     repo.create.mockResolvedValue(sampleAgent);
 
-    await service.create({ brandId: 7, name: 'Soporte' });
+    await service.create(BRAND, { name: 'Soporte' });
 
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        brandId: 7,
+        brandId: BRAND,
         name: 'Soporte',
         enabled: false,
         provider: 'anthropic',
         model: 'claude-sonnet-4-6',
-        systemPrompt: null,
-        effort: null,
-        toolsEnabled: null,
       }),
     );
   });
 
-  it('should throw NotFound from test() when the agent does not exist', async () => {
-    repo.findById.mockResolvedValue(null);
+  it('should default the model to gpt-4o-mini when provider is openai', async () => {
+    repo.create.mockResolvedValue(sampleAgent);
 
-    await expect(service.test('missing', 'hola')).rejects.toBeInstanceOf(
+    await service.create(BRAND, { name: 'Ventas', provider: 'openai' });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'openai', model: 'gpt-4o-mini' }),
+    );
+  });
+
+  it('should throw NotFound when the agent belongs to another brand', async () => {
+    repo.findById.mockResolvedValue({ ...sampleAgent, brandId: 999 });
+
+    await expect(service.test(BRAND, 'agent-1', 'hola')).rejects.toBeInstanceOf(
       NotFoundException,
     );
     expect(runtime.run).not.toHaveBeenCalled();
   });
 
-  it('should run the runtime with the user message on test()', async () => {
+  it('should run the resolved runtime on test() for an owned agent', async () => {
     repo.findById.mockResolvedValue(sampleAgent);
     runtime.run.mockResolvedValue({
       text: 'Hola, ¿en qué te ayudo?',
       usage: { inputTokens: 10, outputTokens: 8 },
     });
 
-    const result = await service.test('agent-1', 'hola');
+    const result = await service.test(BRAND, 'agent-1', 'hola');
 
     expect(resolver.resolve).toHaveBeenCalledWith('anthropic');
     expect(runtime.run).toHaveBeenCalledWith({

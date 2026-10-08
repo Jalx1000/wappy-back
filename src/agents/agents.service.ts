@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AgentRepository } from './infrastructure/persistence/agent.repository';
-import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Agent } from './domain/agent';
 import { AgentRuntimeResult } from './runtime/agent-runtime';
 import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
@@ -19,61 +18,59 @@ export class AgentsService {
     private readonly runtimes: AgentRuntimeResolver,
   ) {}
 
-  create(createAgentDto: CreateAgentDto) {
-    const provider = createAgentDto.provider ?? 'anthropic';
+  create(brandId: number, dto: CreateAgentDto) {
+    const provider = dto.provider ?? 'anthropic';
     return this.agentRepository.create({
-      brandId: createAgentDto.brandId,
-      name: createAgentDto.name,
-      enabled: createAgentDto.enabled ?? false,
+      brandId,
+      name: dto.name,
+      enabled: dto.enabled ?? false,
       provider,
       model:
-        createAgentDto.model ??
+        dto.model ??
         DEFAULT_MODEL_BY_PROVIDER[provider] ??
         DEFAULT_MODEL_BY_PROVIDER.anthropic,
-      systemPrompt: createAgentDto.systemPrompt ?? null,
-      effort: createAgentDto.effort ?? null,
-      toolsEnabled: createAgentDto.toolsEnabled ?? null,
+      systemPrompt: dto.systemPrompt ?? null,
+      effort: dto.effort ?? null,
+      toolsEnabled: dto.toolsEnabled ?? null,
     });
   }
 
-  findAllWithPagination({
-    paginationOptions,
-  }: {
-    paginationOptions: IPaginationOptions;
-  }) {
-    return this.agentRepository.findAllWithPagination({
-      paginationOptions: {
-        page: paginationOptions.page,
-        limit: paginationOptions.limit,
-      },
-    });
+  listForBrand(brandId: number) {
+    return this.agentRepository.findByBrand(brandId);
   }
 
-  findById(id: Agent['id']) {
-    return this.agentRepository.findById(id);
+  async findOne(brandId: number, id: Agent['id']): Promise<Agent> {
+    const agent = await this.agentRepository.findById(id);
+    if (!agent || agent.brandId !== brandId) {
+      throw new NotFoundException('Agent not found');
+    }
+    return agent;
+  }
+
+  async update(brandId: number, id: Agent['id'], dto: UpdateAgentDto) {
+    await this.findOne(brandId, id); // enforce brand ownership
+    return this.agentRepository.update(id, { ...dto });
+  }
+
+  async remove(brandId: number, id: Agent['id']): Promise<void> {
+    await this.findOne(brandId, id); // enforce brand ownership
+    await this.agentRepository.remove(id);
   }
 
   findEnabledByBrand(brandId: number) {
     return this.agentRepository.findEnabledByBrand(brandId);
   }
 
-  update(id: Agent['id'], updateAgentDto: UpdateAgentDto) {
-    return this.agentRepository.update(id, { ...updateAgentDto });
-  }
-
-  remove(id: Agent['id']) {
-    return this.agentRepository.remove(id);
-  }
-
   /**
    * Test console: run the agent against a single user message without touching
-   * any real channel. Backs POST /agents/:id/test.
+   * any real channel. Backs POST /agents/:id/test. Brand-scoped.
    */
-  async test(id: Agent['id'], message: string): Promise<AgentRuntimeResult> {
-    const agent = await this.agentRepository.findById(id);
-    if (!agent) {
-      throw new NotFoundException('Agent not found');
-    }
+  async test(
+    brandId: number,
+    id: Agent['id'],
+    message: string,
+  ): Promise<AgentRuntimeResult> {
+    const agent = await this.findOne(brandId, id);
     return this.runtimes.resolve(agent.provider).run({
       agent,
       messages: [{ role: 'user', content: message }],

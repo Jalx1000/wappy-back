@@ -16,6 +16,9 @@ export abstract class AgentRepository {
 
   abstract findById(id: Agent['id']): Promise<NullableType<Agent>>;
 
+  // All agents for a brand (newest first).
+  abstract findByBrand(brandId: number): Promise<Agent[]>;
+
   // All enabled agents for a brand (one-agent-per-brand today, array-ready).
   abstract findEnabledByBrand(brandId: number): Promise<Agent[]>;
 

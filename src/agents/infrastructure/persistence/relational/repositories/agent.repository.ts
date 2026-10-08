@@ -45,6 +45,15 @@ export class AgentRelationalRepository implements AgentRepository {
     return entity ? AgentMapper.toDomain(entity) : null;
   }
 
+  async findByBrand(brandId: number): Promise<Agent[]> {
+    const entities = await this.agentRepository.find({
+      where: { brandId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return entities.map((entity) => AgentMapper.toDomain(entity));
+  }
+
   async findEnabledByBrand(brandId: number): Promise<Agent[]> {
     const entities = await this.agentRepository.find({
       where: { brandId, enabled: true },

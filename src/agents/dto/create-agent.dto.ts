@@ -3,16 +3,11 @@ import {
   IsArray,
   IsBoolean,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
 } from 'class-validator';
 
 export class CreateAgentDto {
-  @ApiProperty()
-  @IsInt()
-  brandId: number;
-
   @ApiProperty()
   @IsString()
   name: string;

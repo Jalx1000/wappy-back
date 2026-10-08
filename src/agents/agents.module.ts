@@ -5,13 +5,13 @@ import { RelationalAgentPersistenceModule } from './infrastructure/persistence/r
 import { AnthropicAgentRuntime } from './runtime/anthropic-agent-runtime';
 import { OpenAiAgentRuntime } from './runtime/openai-agent-runtime';
 import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
+import { BrandsModule } from '../brands/brands.module';
 
 // Postgres deployment (DATABASE_TYPE=postgres): relational persistence only.
-// A document variant can be added later mirroring other modules if needed.
 // Multi-provider: Anthropic (Claude) + OpenAI (ChatGPT), picked per-agent by
-// AgentRuntimeResolver based on Agent.provider.
+// AgentRuntimeResolver. Brand-scoped via BrandGuard (x-brand-id).
 @Module({
-  imports: [RelationalAgentPersistenceModule],
+  imports: [RelationalAgentPersistenceModule, BrandsModule],
   controllers: [AgentsController],
   providers: [
     AgentsService,

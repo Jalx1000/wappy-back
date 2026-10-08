@@ -7,90 +7,64 @@ import {
   Param,
   Delete,
   UseGuards,
-  Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { BrandGuard } from '../brands/guards/brand.guard';
+import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
+import { Brand } from '../brands/domain/brand';
 import { AgentsService } from './agents.service';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
-import { FindAllAgentsDto } from './dto/find-all-agents.dto';
 import { TestAgentDto } from './dto/test-agent.dto';
-import { Agent } from './domain/agent';
-import {
-  InfinityPaginationResponse,
-  InfinityPaginationResponseDto,
-} from '../utils/dto/infinity-pagination-response.dto';
-import { infinityPagination } from '../utils/infinity-pagination';
 import { AgentRuntimeResult } from './runtime/agent-runtime';
 
 @ApiTags('Agents')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
-@Controller({
-  path: 'agents',
-  version: '1',
-})
+@UseGuards(AuthGuard('jwt'), BrandGuard)
+@Controller({ path: 'agents', version: '1' })
 export class AgentsController {
   constructor(private readonly agentsService: AgentsService) {}
 
   @Post()
-  @ApiCreatedResponse({ type: Agent })
-  create(@Body() createAgentDto: CreateAgentDto) {
-    return this.agentsService.create(createAgentDto);
+  @HttpCode(HttpStatus.CREATED)
+  create(@CurrentBrand() brand: Brand, @Body() dto: CreateAgentDto) {
+    return this.agentsService.create(brand.id, dto);
   }
 
   @Get()
-  @ApiOkResponse({ type: InfinityPaginationResponse(Agent) })
-  async findAll(
-    @Query() query: FindAllAgentsDto,
-  ): Promise<InfinityPaginationResponseDto<Agent>> {
-    const page = query?.page ?? 1;
-    let limit = query?.limit ?? 10;
-    if (limit > 50) {
-      limit = 50;
-    }
-
-    return infinityPagination(
-      await this.agentsService.findAllWithPagination({
-        paginationOptions: { page, limit },
-      }),
-      { page, limit },
-    );
+  list(@CurrentBrand() brand: Brand) {
+    return this.agentsService.listForBrand(brand.id);
   }
 
   @Get(':id')
-  @ApiParam({ name: 'id', type: String, required: true })
-  @ApiOkResponse({ type: Agent })
-  findById(@Param('id') id: string) {
-    return this.agentsService.findById(id);
+  findOne(@CurrentBrand() brand: Brand, @Param('id') id: string) {
+    return this.agentsService.findOne(brand.id, id);
   }
 
   @Patch(':id')
-  @ApiParam({ name: 'id', type: String, required: true })
-  @ApiOkResponse({ type: Agent })
-  update(@Param('id') id: string, @Body() updateAgentDto: UpdateAgentDto) {
-    return this.agentsService.update(id, updateAgentDto);
+  update(
+    @CurrentBrand() brand: Brand,
+    @Param('id') id: string,
+    @Body() dto: UpdateAgentDto,
+  ) {
+    return this.agentsService.update(brand.id, id, dto);
   }
 
   @Delete(':id')
-  @ApiParam({ name: 'id', type: String, required: true })
-  remove(@Param('id') id: string) {
-    return this.agentsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@CurrentBrand() brand: Brand, @Param('id') id: string) {
+    return this.agentsService.remove(brand.id, id);
   }
 
   @Post(':id/test')
-  @ApiParam({ name: 'id', type: String, required: true })
   test(
+    @CurrentBrand() brand: Brand,
     @Param('id') id: string,
     @Body() dto: TestAgentDto,
   ): Promise<AgentRuntimeResult> {
-    return this.agentsService.test(id, dto.message);
+    return this.agentsService.test(brand.id, id, dto.message);
   }
 }
