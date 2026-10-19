@@ -12,6 +12,7 @@ import { ConversationAssignmentRepository } from '../conversation-assignments/in
 import { WhatsappSendService } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
+import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
 
 const CONNECTION = {
   id: 5,
@@ -86,6 +87,13 @@ const makeService = () => {
     upsert: jest.fn(),
   } as unknown as jest.Mocked<ConversationAssignmentRepository>;
 
+  const conversationRatings = {
+    aggregateCsat: jest
+      .fn()
+      .mockResolvedValue({ count: 0, average: null, distribution: {} }),
+    create: jest.fn(),
+  } as unknown as jest.Mocked<ConversationRatingsService>;
+
   const service = new SocialInboxService(
     connectionsRepo,
     conversationsRepo,
@@ -99,6 +107,7 @@ const makeService = () => {
     instagramSend,
     messengerSend,
     assignmentRepo,
+    conversationRatings,
   );
   return {
     service,
@@ -242,5 +251,58 @@ describe('SocialInboxService.sendMessage', () => {
     await expect(
       service.sendMessage(7, 'conv1', 'whatsapp', 'hola'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('SocialInboxService.conversationMetrics', () => {
+  const convos = [
+    {
+      id: 'a',
+      channel: 'whatsapp',
+      lastMessageAt: new Date('2026-10-18T10:00:00Z'),
+      assignment: { userId: 1, teamId: null },
+    },
+    {
+      id: 'b',
+      channel: 'whatsapp',
+      lastMessageAt: new Date('2026-10-10T10:00:00Z'),
+      assignment: null,
+    },
+    {
+      id: 'c',
+      channel: 'instagram',
+      lastMessageAt: new Date('2026-10-18T12:00:00Z'),
+      assignment: { userId: null, teamId: 't1' },
+    },
+  ];
+
+  it('should aggregate volume, channel split and assignment (all-time)', async () => {
+    const { service } = makeService();
+    jest.spyOn(service, 'listConversations').mockResolvedValue(convos as never);
+
+    const m = await service.conversationMetrics(7);
+
+    expect(m.conversations.total).toBe(3);
+    expect(m.conversations.active).toBe(3);
+    expect(m.conversations.byChannel).toEqual({ whatsapp: 2, instagram: 1 });
+    expect(m.conversations.assigned).toBe(2);
+    expect(m.conversations.unassigned).toBe(1);
+    expect(m.csat).toEqual({ count: 0, average: null, distribution: {} });
+  });
+
+  it('should count only conversations active within [from, to]', async () => {
+    const { service } = makeService();
+    jest.spyOn(service, 'listConversations').mockResolvedValue(convos as never);
+
+    const m = await service.conversationMetrics(7, {
+      from: new Date('2026-10-15T00:00:00Z'),
+      to: new Date('2026-10-19T00:00:00Z'),
+    });
+
+    // 'b' (Oct 10) is outside the window; 'a' and 'c' remain.
+    expect(m.conversations.total).toBe(3);
+    expect(m.conversations.active).toBe(2);
+    expect(m.conversations.byChannel).toEqual({ whatsapp: 1, instagram: 1 });
+    expect(m.conversations.assigned).toBe(2);
   });
 });

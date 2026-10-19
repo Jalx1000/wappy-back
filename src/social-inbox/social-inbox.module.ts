@@ -16,6 +16,7 @@ import { WhatsappSendService } from './whatsapp-send.service';
 import { WhatsappMediaService } from './whatsapp-media.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
+import { ConversationRatingsModule } from '../conversation-ratings/conversation-ratings.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { MessengerSendService } from './messenger-send.service';
     RelationalMessengerConversationPersistenceModule,
     RelationalMessengerMessagePersistenceModule,
     RelationalConversationAssignmentPersistenceModule,
+    ConversationRatingsModule,
   ],
   controllers: [SocialInboxController],
   providers: [

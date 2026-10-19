@@ -98,8 +98,11 @@ import { TeamsModule } from './teams/teams.module';
 
 import { CompaniesModule } from './companies/companies.module';
 
+import { ConversationRatingsModule } from './conversation-ratings/conversation-ratings.module';
+
 @Module({
   imports: [
+    ConversationRatingsModule,
     CompaniesModule,
     TeamsModule,
     InvitationsModule,
