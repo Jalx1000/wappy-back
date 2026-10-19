@@ -8,3 +8,4 @@ export const QUEUE_MENTIONS = 'mentions';
 export const QUEUE_INSIGHTS = 'insights';
 export const QUEUE_PUBLISH = 'publish';
 export const QUEUE_WHATSAPP_SYNC = 'whatsapp-sync';
+export const QUEUE_AGENT = 'agent';

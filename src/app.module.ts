@@ -45,10 +45,12 @@ import { InboxModule } from './inbox/inbox.module';
 import { PublishingModule } from './publishing/publishing.module';
 import { ProductsModule } from './products/products.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { AgentsModule } from './agents/agents.module';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import {
+  QUEUE_AGENT,
   QUEUE_EMAILS,
   QUEUE_INSIGHTS,
   QUEUE_MENTIONS,
@@ -96,8 +98,11 @@ import { TeamsModule } from './teams/teams.module';
 
 import { CompaniesModule } from './companies/companies.module';
 
+import { ConversationRatingsModule } from './conversation-ratings/conversation-ratings.module';
+
 @Module({
   imports: [
+    ConversationRatingsModule,
     CompaniesModule,
     TeamsModule,
     InvitationsModule,
@@ -186,6 +191,7 @@ import { CompaniesModule } from './companies/companies.module';
     PublishingModule,
     ProductsModule,
     WebhooksModule,
+    AgentsModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
@@ -200,6 +206,7 @@ import { CompaniesModule } from './companies/companies.module';
       { name: QUEUE_MENTIONS, adapter: BullMQAdapter },
       { name: QUEUE_INSIGHTS, adapter: BullMQAdapter },
       { name: QUEUE_PUBLISH, adapter: BullMQAdapter },
+      { name: QUEUE_AGENT, adapter: BullMQAdapter },
     ),
   ],
 })

@@ -30,6 +30,8 @@ import {
 } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
+import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
+import { ConversationRating } from '../conversation-ratings/domain/conversation-rating';
 
 // Channels for which we currently store conversations/messages. As new channel
 // sources are added (Messenger, TikTok, LinkedIn…), extend `listConversations` /
@@ -93,6 +95,29 @@ export interface UnifiedMessage {
   sentAt: Date;
 }
 
+/**
+ * Brand-scoped support metrics consumed by the web dashboard and the mobile
+ * Statistics screen. Volume/activity/assignment are real (derived from the
+ * unified conversation feed). `csat` is a stable block that stays zeroed until a
+ * ConversationRating source feeds it. Response/resolution times are intentionally
+ * absent: the inbox does not persist conversation status nor response timestamps.
+ */
+export interface SupportMetrics {
+  range: { from: string | null; to: string | null };
+  conversations: {
+    total: number;
+    active: number;
+    byChannel: Record<string, number>;
+    assigned: number;
+    unassigned: number;
+  };
+  csat: {
+    count: number;
+    average: number | null;
+    distribution: Record<string, number>;
+  };
+}
+
 /** Short inbox-list preview from a message: its text, or a label for media. */
 function messagePreview(
   m: { content?: string | null; messageType: string } | undefined,
@@ -128,6 +153,7 @@ export class SocialInboxService {
     private readonly instagramSend: InstagramSendService,
     private readonly messengerSend: MessengerSendService,
     private readonly assignmentRepo: ConversationAssignmentRepository,
+    private readonly conversationRatings: ConversationRatingsService,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
@@ -186,6 +212,85 @@ export class SocialInboxService {
       (a, b) =>
         (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0),
     );
+  }
+
+  /**
+   * Brand-scoped support metrics from the unified conversation feed. "active"
+   * counts conversations with activity inside [from, to] (both optional — omit
+   * for all-time). CSAT ships as a stable, zeroed block until a rating source
+   * feeds it; status/response-time metrics are out of scope because the inbox
+   * does not persist those fields.
+   */
+  async conversationMetrics(
+    brandId: number,
+    range: { from?: Date; to?: Date } = {},
+  ): Promise<SupportMetrics> {
+    const convos = await this.listConversations(brandId);
+
+    const from = range.from?.getTime() ?? null;
+    const to = range.to?.getTime() ?? null;
+    const hasRange = from !== null || to !== null;
+    const inRange = (d: Date | null): boolean => {
+      if (!d) return false;
+      const t = d.getTime();
+      if (from !== null && t < from) return false;
+      if (to !== null && t > to) return false;
+      return true;
+    };
+
+    const active = hasRange
+      ? convos.filter((c) => inRange(c.lastMessageAt))
+      : convos;
+
+    const byChannel: Record<string, number> = {};
+    for (const c of active) {
+      byChannel[c.channel] = (byChannel[c.channel] ?? 0) + 1;
+    }
+
+    const assigned = active.filter(
+      (c) =>
+        c.assignment != null &&
+        (c.assignment.userId != null || c.assignment.teamId != null),
+    ).length;
+
+    const csat = await this.conversationRatings.aggregateCsat(brandId, {
+      from: range.from,
+      to: range.to,
+    });
+
+    return {
+      range: {
+        from: range.from?.toISOString() ?? null,
+        to: range.to?.toISOString() ?? null,
+      },
+      conversations: {
+        total: convos.length,
+        active: active.length,
+        byChannel,
+        assigned,
+        unassigned: active.length - assigned,
+      },
+      csat,
+    };
+  }
+
+  /**
+   * Stores a CSAT rating (1–5) for a conversation, brand-scoped. The survey that
+   * prompts the customer to rate is a separate follow-up; this is the sink that
+   * the metrics endpoint aggregates.
+   */
+  async submitRating(
+    brandId: number,
+    conversationId: string,
+    input: { channel: string; score: number; comment?: string | null },
+  ): Promise<ConversationRating> {
+    return this.conversationRatings.create({
+      brandId,
+      conversationId,
+      channel: input.channel,
+      score: input.score,
+      comment: input.comment ?? null,
+    });
   }
 
   /**

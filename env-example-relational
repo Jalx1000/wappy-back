@@ -94,5 +94,7 @@ GA4_REDIRECT_URI=http://localhost:3100/api/v1/connections/ga4/callback
 WORKER_HOST=redis://redis:6379/1
 WORKER_CONCURRENCY=2
 
-# Claude API (Anthropic) — used by InsightProcessor
+# Claude API (Anthropic) — used by InsightProcessor and AI agents (provider=anthropic)
 ANTHROPIC_API_KEY=
+# OpenAI API (ChatGPT) — used by AI agents (provider=openai)
+OPENAI_API_KEY=

@@ -12,6 +12,7 @@ import {
   QUEUE_SYNC_WEB,
   QUEUE_TOKENS,
   QUEUE_WHATSAPP_SYNC,
+  QUEUE_AGENT,
 } from './queue-names.constants';
 
 @Module({
@@ -44,6 +45,7 @@ import {
       { name: QUEUE_INSIGHTS },
       { name: QUEUE_PUBLISH },
       { name: QUEUE_WHATSAPP_SYNC },
+      { name: QUEUE_AGENT },
     ),
   ],
   exports: [BullModule],

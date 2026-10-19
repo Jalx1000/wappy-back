@@ -2,3 +2,7 @@
 /.data
 /dist
 /files
+# Never bake local env files into the image — prod uses Railway-injected env.
+.env
+.env.*
+!.env.example

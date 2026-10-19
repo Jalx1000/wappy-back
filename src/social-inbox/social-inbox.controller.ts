@@ -27,6 +27,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { SendLocationDto } from './dto/send-location.dto';
 import { SendMediaDto } from './dto/send-media.dto';
 import { AssignConversationDto } from './dto/assign-conversation.dto';
+import { SubmitRatingDto } from './dto/submit-rating.dto';
 
 @ApiTags('Social Inbox')
 @ApiBearerAuth()
@@ -62,6 +63,28 @@ export class SocialInboxController {
   @Get('accounts')
   listAccounts(@CurrentBrand() brand: Brand) {
     return this.service.listAccounts(brand.id);
+  }
+
+  @Get('metrics')
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  metrics(
+    @CurrentBrand() brand: Brand,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.conversationMetrics(brand.id, {
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
   }
 
   @Get('conversations')
@@ -106,6 +129,19 @@ export class SocialInboxController {
     return this.service.assign(brand.id, id, dto.channel, {
       assigneeUserId: dto.assigneeUserId,
       teamId: dto.teamId,
+    });
+  }
+
+  @Post('conversations/:id/rating')
+  submitRating(
+    @CurrentBrand() brand: Brand,
+    @Param('id') id: string,
+    @Body() dto: SubmitRatingDto,
+  ) {
+    return this.service.submitRating(brand.id, id, {
+      channel: dto.channel,
+      score: dto.score,
+      comment: dto.comment,
     });
   }
 
