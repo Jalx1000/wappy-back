@@ -45,7 +45,11 @@ describe('AgentsService', () => {
       resolve: jest.fn().mockReturnValue(runtime),
     } as unknown as jest.Mocked<AgentRuntimeResolver>;
 
-    service = new AgentsService(repo, resolver);
+    const tools = {
+      forAgent: jest.fn().mockReturnValue([]),
+    } as unknown as import('./tools/agent-tool.registry').AgentToolRegistry;
+
+    service = new AgentsService(repo, resolver, tools);
   });
 
   it('should create with the current brand id and apply defaults', async () => {
@@ -97,6 +101,7 @@ describe('AgentsService', () => {
       agent: sampleAgent,
       messages: [{ role: 'user', content: 'hola' }],
       context: { brandId: BRAND },
+      tools: [],
     });
     expect(result.text).toContain('Hola');
   });
