@@ -93,4 +93,11 @@ export class ConversationStateRelationalRepository implements ConversationStateR
     });
     return entity ? ConversationStateMapper.toDomain(entity) : null;
   }
+
+  async findByBrand(brandId: number): Promise<ConversationState[]> {
+    const entities = await this.conversationStateRepository.find({
+      where: { brandId },
+    });
+    return entities.map((entity) => ConversationStateMapper.toDomain(entity));
+  }
 }

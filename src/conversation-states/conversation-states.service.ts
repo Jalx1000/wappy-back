@@ -101,6 +101,10 @@ export class ConversationStatesService {
     );
   }
 
+  findByBrand(brandId: number) {
+    return this.conversationStateRepository.findByBrand(brandId);
+  }
+
   /**
    * Upserts the lifecycle status of a conversation. Setting `resolved` stamps
    * `resolvedAt`/`resolvedByUserId` once (idempotent — a second resolve keeps the

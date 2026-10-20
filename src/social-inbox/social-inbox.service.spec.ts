@@ -46,6 +46,7 @@ const makeService = () => {
       content: 'hola',
       sentAt: new Date(),
     }),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<WhatsappMessageRepository>;
 
   const contactsService = {} as unknown as jest.Mocked<ContactsService>;
@@ -61,7 +62,7 @@ const makeService = () => {
 
   const igMessagesRepo = {
     create: jest.fn(),
-    findByConversationId: jest.fn(),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<InstagramMessageRepository>;
 
   const instagramSend = {
@@ -75,7 +76,7 @@ const makeService = () => {
 
   const messengerMessagesRepo = {
     create: jest.fn(),
-    findByConversationId: jest.fn(),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<MessengerMessageRepository>;
 
   const messengerSend = {
@@ -97,6 +98,7 @@ const makeService = () => {
 
   const conversationStates = {
     findByConversation: jest.fn().mockResolvedValue(null),
+    findByBrand: jest.fn().mockResolvedValue([]),
     setStatus: jest.fn().mockResolvedValue({ status: 'resolved' }),
   } as unknown as jest.Mocked<ConversationStatesService>;
 
@@ -374,5 +376,35 @@ describe('SocialInboxService.conversationMetrics', () => {
     expect(m.conversations.active).toBe(2);
     expect(m.conversations.byChannel).toEqual({ whatsapp: 1, instagram: 1 });
     expect(m.conversations.assigned).toBe(2);
+  });
+
+  it('should derive byStatus, response time and volume series', async () => {
+    const { service, conversationStates, messagesRepo } = makeService();
+    jest
+      .spyOn(service, 'listConversations')
+      .mockResolvedValue([convos[0]] as never); // only 'a' (whatsapp)
+
+    // 'a' resolved by user 1 on Oct 18.
+    (conversationStates.findByBrand as jest.Mock).mockResolvedValue([
+      {
+        conversationId: 'a',
+        status: 'resolved',
+        resolvedAt: new Date('2026-10-18T15:00:00Z'),
+      },
+    ]);
+    // Inbound at 10:00, first reply at 10:03 → 180s.
+    (messagesRepo.findByConversationId as jest.Mock).mockResolvedValue([
+      { direction: 'in', sentAt: new Date('2026-10-18T10:00:00Z') },
+      { direction: 'out', sentAt: new Date('2026-10-18T10:03:00Z') },
+    ]);
+
+    const m = await service.conversationMetrics(7);
+
+    expect(m.byStatus.resolved).toBe(1);
+    expect(m.responseTime.medianSeconds).toBe(180);
+    expect(m.responseTime.distribution).toEqual({ '1-5m': 1 });
+    expect(m.volumeSeries).toEqual([
+      { date: '2026-10-18', created: 1, resolved: 1 },
+    ]);
   });
 });

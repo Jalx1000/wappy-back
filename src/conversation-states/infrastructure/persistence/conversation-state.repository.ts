@@ -34,4 +34,7 @@ export abstract class ConversationStateRepository {
     conversationId: string,
     channel: string,
   ): Promise<NullableType<ConversationState>>;
+
+  // All state rows for a brand — for metrics aggregation (byStatus, resolved series).
+  abstract findByBrand(brandId: number): Promise<ConversationState[]>;
 }

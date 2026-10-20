@@ -99,10 +99,10 @@ export interface UnifiedMessage {
 
 /**
  * Brand-scoped support metrics consumed by the web dashboard and the mobile
- * Statistics screen. Volume/activity/assignment are real (derived from the
- * unified conversation feed). `csat` is a stable block that stays zeroed until a
- * ConversationRating source feeds it. Response/resolution times are intentionally
- * absent: the inbox does not persist conversation status nor response timestamps.
+ * Statistics screen. Volume/activity/assignment come from the unified feed;
+ * `byStatus` from conversation_state; `responseTime` and the `created` series are
+ * derived from message timestamps (no webhook changes, works retroactively);
+ * the `resolved` series and resolution attribution from conversation_state.
  */
 export interface SupportMetrics {
   range: { from: string | null; to: string | null };
@@ -113,11 +113,45 @@ export interface SupportMetrics {
     assigned: number;
     unassigned: number;
   };
+  byStatus: Record<string, number>;
+  volumeSeries: { date: string; created: number; resolved: number }[];
+  responseTime: {
+    medianSeconds: number | null;
+    distribution: Record<string, number>;
+  };
   csat: {
     count: number;
     average: number | null;
     distribution: Record<string, number>;
   };
+}
+
+/** First-inbound / first-response timestamps derived from a message list. */
+function deriveTimes(messages: { direction: string; sentAt: Date }[]): {
+  firstInboundAt: Date | null;
+  firstResponseAt: Date | null;
+} {
+  let firstInboundAt: Date | null = null;
+  let firstResponseAt: Date | null = null;
+  const sorted = [...messages].sort(
+    (a, b) => a.sentAt.getTime() - b.sentAt.getTime(),
+  );
+  for (const m of sorted) {
+    if (m.direction === 'in' && !firstInboundAt) firstInboundAt = m.sentAt;
+    if (m.direction === 'out' && firstInboundAt && !firstResponseAt) {
+      firstResponseAt = m.sentAt;
+    }
+  }
+  return { firstInboundAt, firstResponseAt };
+}
+
+/** Buckets a response time (seconds) into a human label. */
+function responseBucket(seconds: number): string {
+  if (seconds < 60) return '<1m';
+  if (seconds < 300) return '1-5m';
+  if (seconds < 1800) return '5-30m';
+  if (seconds < 7200) return '30m-2h';
+  return '>2h';
 }
 
 /** Short inbox-list preview from a message: its text, or a label for media. */
@@ -261,6 +295,71 @@ export class SocialInboxService {
       to: range.to,
     });
 
+    // Lifecycle status: conversations with no state row are implicitly 'open'.
+    const states = await this.conversationStates.findByBrand(brandId);
+    const stateByConv = new Map(states.map((s) => [s.conversationId, s]));
+    const byStatus: Record<string, number> = {
+      open: 0,
+      pending: 0,
+      resolved: 0,
+      snoozed: 0,
+    };
+    for (const c of active) {
+      const st = stateByConv.get(c.id)?.status ?? 'open';
+      byStatus[st] = (byStatus[st] ?? 0) + 1;
+    }
+
+    // Response time + "created" series, derived from message timestamps.
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10); // UTC day; tz bucketing = follow-up
+    const seriesCreated: Record<string, number> = {};
+    const seriesResolved: Record<string, number> = {};
+    const responseDist: Record<string, number> = {};
+    const responseSecs: number[] = [];
+
+    for (const c of active) {
+      const msgs = await this.messagesForMetrics(c.channel, c.id);
+      const { firstInboundAt, firstResponseAt } = deriveTimes(msgs);
+      if (firstInboundAt && (!hasRange || inRange(firstInboundAt))) {
+        const k = dayKey(firstInboundAt);
+        seriesCreated[k] = (seriesCreated[k] ?? 0) + 1;
+      }
+      if (firstInboundAt && firstResponseAt) {
+        const secs = Math.round(
+          (firstResponseAt.getTime() - firstInboundAt.getTime()) / 1000,
+        );
+        if (secs >= 0) {
+          responseSecs.push(secs);
+          const b = responseBucket(secs);
+          responseDist[b] = (responseDist[b] ?? 0) + 1;
+        }
+      }
+    }
+    for (const s of states) {
+      if (s.resolvedAt && (!hasRange || inRange(s.resolvedAt))) {
+        const k = dayKey(s.resolvedAt);
+        seriesResolved[k] = (seriesResolved[k] ?? 0) + 1;
+      }
+    }
+
+    const days = Array.from(
+      new Set([...Object.keys(seriesCreated), ...Object.keys(seriesResolved)]),
+    ).sort();
+    const volumeSeries = days.map((date) => ({
+      date,
+      created: seriesCreated[date] ?? 0,
+      resolved: seriesResolved[date] ?? 0,
+    }));
+
+    let medianSeconds: number | null = null;
+    if (responseSecs.length > 0) {
+      const sorted = [...responseSecs].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      medianSeconds =
+        sorted.length % 2 === 0
+          ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+          : sorted[mid];
+    }
+
     return {
       range: {
         from: range.from?.toISOString() ?? null,
@@ -273,8 +372,31 @@ export class SocialInboxService {
         assigned,
         unassigned: active.length - assigned,
       },
+      byStatus,
+      volumeSeries,
+      responseTime: { medianSeconds, distribution: responseDist },
       csat,
     };
+  }
+
+  /**
+   * Raw message directions/timestamps for metrics derivation (per conversation).
+   * Follow-up: this is one query per conversation — batch if volume grows.
+   */
+  private async messagesForMetrics(
+    channel: string,
+    conversationId: string,
+  ): Promise<{ direction: string; sentAt: Date }[]> {
+    if (channel === ChannelEnum.whatsapp) {
+      return this.messagesRepo.findByConversationId(conversationId);
+    }
+    if (INSTAGRAM_CHANNELS.includes(channel as ChannelEnum)) {
+      return this.igMessagesRepo.findByConversationId(conversationId);
+    }
+    if (MESSENGER_CHANNELS.includes(channel as ChannelEnum)) {
+      return this.messengerMessagesRepo.findByConversationId(conversationId);
+    }
+    return [];
   }
 
   /**
