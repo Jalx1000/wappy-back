@@ -74,6 +74,7 @@ export class AgentsService {
     return this.runtimes.resolve(agent.provider).run({
       agent,
       messages: [{ role: 'user', content: message }],
+      context: { brandId },
     });
   }
 }

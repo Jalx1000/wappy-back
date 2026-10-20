@@ -6,9 +6,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import {
+  AgentRunContext,
   AgentRuntime,
   AgentRuntimeMessage,
   AgentRuntimeResult,
+  AgentTool,
 } from './agent-runtime';
 import { Agent } from '../domain/agent';
 
@@ -47,6 +49,8 @@ export class OpenAiAgentRuntime extends AgentRuntime {
   async run(input: {
     agent: Agent;
     messages: AgentRuntimeMessage[];
+    context: AgentRunContext;
+    tools?: AgentTool[];
   }): Promise<AgentRuntimeResult> {
     const { agent, messages } = input;
     const system = agent.systemPrompt?.trim() || DEFAULT_SYSTEM;

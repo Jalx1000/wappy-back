@@ -96,6 +96,7 @@ describe('AgentsService', () => {
     expect(runtime.run).toHaveBeenCalledWith({
       agent: sampleAgent,
       messages: [{ role: 'user', content: 'hola' }],
+      context: { brandId: BRAND },
     });
     expect(result.text).toContain('Hola');
   });
