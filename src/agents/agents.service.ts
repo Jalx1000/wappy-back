@@ -5,6 +5,7 @@ import { AgentRepository } from './infrastructure/persistence/agent.repository';
 import { Agent } from './domain/agent';
 import { AgentRuntimeResult } from './runtime/agent-runtime';
 import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
+import { AgentToolRegistry } from './tools/agent-tool.registry';
 
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   anthropic: 'claude-sonnet-4-6',
@@ -16,6 +17,7 @@ export class AgentsService {
   constructor(
     private readonly agentRepository: AgentRepository,
     private readonly runtimes: AgentRuntimeResolver,
+    private readonly tools: AgentToolRegistry,
   ) {}
 
   create(brandId: number, dto: CreateAgentDto) {
@@ -74,6 +76,8 @@ export class AgentsService {
     return this.runtimes.resolve(agent.provider).run({
       agent,
       messages: [{ role: 'user', content: message }],
+      context: { brandId },
+      tools: this.tools.forAgent(agent.toolsEnabled),
     });
   }
 }
