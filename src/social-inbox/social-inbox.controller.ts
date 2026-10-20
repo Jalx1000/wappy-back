@@ -28,6 +28,9 @@ import { SendLocationDto } from './dto/send-location.dto';
 import { SendMediaDto } from './dto/send-media.dto';
 import { AssignConversationDto } from './dto/assign-conversation.dto';
 import { SubmitRatingDto } from './dto/submit-rating.dto';
+import { SetStatusDto } from './dto/set-status.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtPayloadType } from '../auth/strategies/types/jwt-payload.type';
 
 @ApiTags('Social Inbox')
 @ApiBearerAuth()
@@ -130,6 +133,23 @@ export class SocialInboxController {
       assigneeUserId: dto.assigneeUserId,
       teamId: dto.teamId,
     });
+  }
+
+  @Patch('conversations/:id/status')
+  setStatus(
+    @CurrentBrand() brand: Brand,
+    @CurrentUser() user: JwtPayloadType,
+    @Param('id') id: string,
+    @Body() dto: SetStatusDto,
+  ) {
+    const userId = user?.id != null ? Number(user.id) : null;
+    return this.service.setConversationStatus(
+      brand.id,
+      id,
+      dto.channel,
+      dto.status,
+      userId,
+    );
   }
 
   @Post('conversations/:id/rating')

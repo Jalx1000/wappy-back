@@ -28,4 +28,10 @@ export abstract class ConversationStateRepository {
   ): Promise<ConversationState | null>;
 
   abstract remove(id: ConversationState['id']): Promise<void>;
+
+  // One row per (conversation, channel) — the resolve key for status stamping.
+  abstract findByConversation(
+    conversationId: string,
+    channel: string,
+  ): Promise<NullableType<ConversationState>>;
 }

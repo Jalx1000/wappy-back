@@ -13,6 +13,7 @@ import { WhatsappSendService } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
 import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
+import { ConversationStatesService } from '../conversation-states/conversation-states.service';
 
 const CONNECTION = {
   id: 5,
@@ -94,6 +95,11 @@ const makeService = () => {
     create: jest.fn(),
   } as unknown as jest.Mocked<ConversationRatingsService>;
 
+  const conversationStates = {
+    findByConversation: jest.fn().mockResolvedValue(null),
+    setStatus: jest.fn().mockResolvedValue({ status: 'resolved' }),
+  } as unknown as jest.Mocked<ConversationStatesService>;
+
   const service = new SocialInboxService(
     connectionsRepo,
     conversationsRepo,
@@ -108,6 +114,7 @@ const makeService = () => {
     messengerSend,
     assignmentRepo,
     conversationRatings,
+    conversationStates,
   );
   return {
     service,
@@ -121,8 +128,71 @@ const makeService = () => {
     whatsappSend,
     instagramSend,
     messengerSend,
+    assignmentRepo,
+    conversationRatings,
+    conversationStates,
   };
 };
+
+describe('SocialInboxService.setConversationStatus', () => {
+  it('should brand-scope, stamp status and emit realtime', async () => {
+    const { service, conversationStates } = makeService();
+    const realtime = { emitConversationUpdated: jest.fn() };
+    (service as unknown as { realtime: unknown }).realtime = realtime;
+
+    await service.setConversationStatus(7, 'conv1', 'whatsapp', 'resolved', 1);
+
+    expect(conversationStates.setStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 7,
+        conversationId: 'conv1',
+        channel: 'whatsapp',
+        status: 'resolved',
+        userId: 1,
+      }),
+    );
+    expect(realtime.emitConversationUpdated).toHaveBeenCalled();
+  });
+
+  it('should reject an unsupported channel', async () => {
+    const { service } = makeService();
+    await expect(
+      service.setConversationStatus(7, 'conv1', 'tiktok', 'resolved', 1),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('SocialInboxService.submitRating', () => {
+  it('should attribute the rating to the resolver (agentUserId)', async () => {
+    const { service, conversationStates, conversationRatings } = makeService();
+    (conversationStates.findByConversation as jest.Mock).mockResolvedValue({
+      resolvedByUserId: 42,
+    });
+
+    await service.submitRating(7, 'conv1', { channel: 'whatsapp', score: 5 });
+
+    expect(conversationRatings.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agentUserId: 42, score: 5 }),
+    );
+  });
+
+  it('should fall back to the assignee when not yet resolved', async () => {
+    const { service, conversationStates, assignmentRepo, conversationRatings } =
+      makeService();
+    (conversationStates.findByConversation as jest.Mock).mockResolvedValue(
+      null,
+    );
+    (assignmentRepo.findByConversationId as jest.Mock).mockResolvedValue({
+      assignedUserId: 99,
+    });
+
+    await service.submitRating(7, 'conv1', { channel: 'whatsapp', score: 4 });
+
+    expect(conversationRatings.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agentUserId: 99 }),
+    );
+  });
+});
 
 describe('SocialInboxService.sendMessage', () => {
   it('should send via Cloud API and mirror the outbound message', async () => {

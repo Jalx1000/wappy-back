@@ -83,4 +83,14 @@ export class ConversationStateRelationalRepository implements ConversationStateR
   async remove(id: ConversationState['id']): Promise<void> {
     await this.conversationStateRepository.delete(id);
   }
+
+  async findByConversation(
+    conversationId: string,
+    channel: string,
+  ): Promise<NullableType<ConversationState>> {
+    const entity = await this.conversationStateRepository.findOne({
+      where: { conversationId, channel },
+    });
+    return entity ? ConversationStateMapper.toDomain(entity) : null;
+  }
 }

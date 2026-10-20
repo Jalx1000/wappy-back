@@ -32,6 +32,8 @@ import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
 import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
 import { ConversationRating } from '../conversation-ratings/domain/conversation-rating';
+import { ConversationStatesService } from '../conversation-states/conversation-states.service';
+import { ConversationState } from '../conversation-states/domain/conversation-state';
 
 // Channels for which we currently store conversations/messages. As new channel
 // sources are added (Messenger, TikTok, LinkedIn…), extend `listConversations` /
@@ -154,6 +156,7 @@ export class SocialInboxService {
     private readonly messengerSend: MessengerSendService,
     private readonly assignmentRepo: ConversationAssignmentRepository,
     private readonly conversationRatings: ConversationRatingsService,
+    private readonly conversationStates: ConversationStatesService,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
@@ -284,13 +287,74 @@ export class SocialInboxService {
     conversationId: string,
     input: { channel: string; score: number; comment?: string | null },
   ): Promise<ConversationRating> {
+    // Attribute the rating to the agent who resolved the conversation (falls back
+    // to the current assignee) so the metrics leaderboard can group by agent.
+    const state = await this.conversationStates.findByConversation(
+      conversationId,
+      input.channel,
+    );
+    let agentUserId = state?.resolvedByUserId ?? null;
+    if (agentUserId == null) {
+      const assignment =
+        await this.assignmentRepo.findByConversationId(conversationId);
+      agentUserId = assignment?.assignedUserId ?? null;
+    }
+
     return this.conversationRatings.create({
       brandId,
       conversationId,
       channel: input.channel,
       score: input.score,
       comment: input.comment ?? null,
+      agentUserId,
     });
+  }
+
+  /**
+   * Sets the lifecycle status (open/pending/resolved/snoozed) of a conversation,
+   * brand-scoped via its connection. Resolving stamps the resolver. Emits a
+   * realtime `conversation:updated` so open inboxes refresh.
+   */
+  async setConversationStatus(
+    brandId: number,
+    conversationId: string,
+    channel: string,
+    status: string,
+    userId?: number | null,
+  ): Promise<ConversationState> {
+    let connectionId: number;
+    if (channel === ChannelEnum.whatsapp) {
+      connectionId = (await this.resolveScopedWhatsapp(brandId, conversationId))
+        .connection.id;
+    } else if (INSTAGRAM_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedInstagram(brandId, conversationId)
+      ).connection.id;
+    } else if (MESSENGER_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedMessenger(brandId, conversationId)
+      ).connection.id;
+    } else {
+      throw new BadRequestException(`Unsupported channel "${channel}"`);
+    }
+
+    const saved = await this.conversationStates.setStatus({
+      brandId,
+      conversationId,
+      channel,
+      status,
+      userId,
+    });
+
+    this.realtime?.emitConversationUpdated({
+      brandId,
+      channel,
+      connectionId,
+      conversationId,
+      lastMessageAt: null,
+    });
+
+    return saved;
   }
 
   /**

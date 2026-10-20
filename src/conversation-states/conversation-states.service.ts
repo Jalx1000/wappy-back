@@ -93,4 +93,52 @@ export class ConversationStatesService {
   remove(id: ConversationState['id']) {
     return this.conversationStateRepository.remove(id);
   }
+
+  findByConversation(conversationId: string, channel: string) {
+    return this.conversationStateRepository.findByConversation(
+      conversationId,
+      channel,
+    );
+  }
+
+  /**
+   * Upserts the lifecycle status of a conversation. Setting `resolved` stamps
+   * `resolvedAt`/`resolvedByUserId` once (idempotent — a second resolve keeps the
+   * original stamp); any non-resolved status clears them.
+   */
+  async setStatus(input: {
+    brandId: number;
+    conversationId: string;
+    channel: string;
+    status: string;
+    userId?: number | null;
+  }): Promise<ConversationState> {
+    const existing = await this.conversationStateRepository.findByConversation(
+      input.conversationId,
+      input.channel,
+    );
+    const resolving = input.status === 'resolved';
+
+    if (!existing) {
+      return this.conversationStateRepository.create({
+        conversationId: input.conversationId,
+        channel: input.channel,
+        brandId: input.brandId,
+        status: input.status,
+        firstInboundAt: null,
+        firstResponseAt: null,
+        resolvedAt: resolving ? new Date() : null,
+        resolvedByUserId: resolving ? (input.userId ?? null) : null,
+      });
+    }
+
+    const updated = await this.conversationStateRepository.update(existing.id, {
+      status: input.status,
+      resolvedAt: resolving ? (existing.resolvedAt ?? new Date()) : null,
+      resolvedByUserId: resolving
+        ? (existing.resolvedByUserId ?? input.userId ?? null)
+        : null,
+    });
+    return updated ?? existing;
+  }
 }
