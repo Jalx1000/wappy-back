@@ -2,6 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ConversationRating {
   @ApiProperty({
+    type: () => Number,
+    nullable: true,
+  })
+  agentUserId?: number | null;
+
+  @ApiProperty({
     type: () => String,
     nullable: true,
   })

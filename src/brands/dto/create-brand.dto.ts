@@ -9,6 +9,14 @@ import {
 } from 'class-validator';
 
 export class CreateBrandDto {
+  @ApiProperty({
+    required: false,
+    type: () => String,
+  })
+  @IsOptional()
+  @IsString()
+  timezone?: string | null;
+
   @ApiProperty({ example: 'Acme Bolivia' })
   @IsString()
   @MinLength(2)

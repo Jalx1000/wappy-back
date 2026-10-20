@@ -22,6 +22,8 @@ export class ConversationRatingsService {
     return this.conversationRatingRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      agentUserId: createConversationRatingDto.agentUserId,
+
       comment: createConversationRatingDto.comment,
 
       brandId: createConversationRatingDto.brandId,
@@ -91,6 +93,8 @@ export class ConversationRatingsService {
     return this.conversationRatingRepository.update(id, {
       // Do not remove comment below.
       // <updating-property-payload />
+      agentUserId: updateConversationRatingDto.agentUserId,
+
       comment: updateConversationRatingDto.comment,
 
       brandId: updateConversationRatingDto.brandId,

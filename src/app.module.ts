@@ -100,8 +100,11 @@ import { CompaniesModule } from './companies/companies.module';
 
 import { ConversationRatingsModule } from './conversation-ratings/conversation-ratings.module';
 
+import { ConversationStatesModule } from './conversation-states/conversation-states.module';
+
 @Module({
   imports: [
+    ConversationStatesModule,
     ConversationRatingsModule,
     CompaniesModule,
     TeamsModule,
