@@ -17,6 +17,7 @@ import { WhatsappMediaService } from './whatsapp-media.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
 import { ConversationRatingsModule } from '../conversation-ratings/conversation-ratings.module';
+import { ConversationStatesModule } from '../conversation-states/conversation-states.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ConversationRatingsModule } from '../conversation-ratings/conversation-
     RelationalMessengerMessagePersistenceModule,
     RelationalConversationAssignmentPersistenceModule,
     ConversationRatingsModule,
+    ConversationStatesModule,
   ],
   controllers: [SocialInboxController],
   providers: [

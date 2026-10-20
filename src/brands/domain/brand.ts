@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class Brand {
+  @ApiProperty({
+    type: () => String,
+    nullable: true,
+  })
+  timezone?: string | null;
+
   @ApiProperty({ type: Number })
   id: number;
 

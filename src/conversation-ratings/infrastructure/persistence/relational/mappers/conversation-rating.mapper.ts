@@ -5,6 +5,8 @@ import { ConversationRatingEntity } from '../entities/conversation-rating.entity
 export class ConversationRatingMapper {
   static toDomain(raw: ConversationRatingEntity): ConversationRating {
     const domainEntity = new ConversationRating();
+    domainEntity.agentUserId = raw.agentUserId;
+
     domainEntity.comment = raw.comment;
 
     domainEntity.brandId = raw.brandId;
@@ -26,6 +28,8 @@ export class ConversationRatingMapper {
     domainEntity: ConversationRating,
   ): ConversationRatingEntity {
     const persistenceEntity = new ConversationRatingEntity();
+    persistenceEntity.agentUserId = domainEntity.agentUserId;
+
     persistenceEntity.comment = domainEntity.comment;
 
     persistenceEntity.brandId = domainEntity.brandId;

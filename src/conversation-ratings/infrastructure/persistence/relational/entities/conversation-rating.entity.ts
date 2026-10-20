@@ -13,6 +13,12 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 export class ConversationRatingEntity extends EntityRelationalHelper {
   @Column({
     nullable: true,
+    type: Number,
+  })
+  agentUserId?: number | null;
+
+  @Column({
+    nullable: true,
     type: String,
   })
   comment?: string | null;

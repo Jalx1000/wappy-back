@@ -1,4 +1,5 @@
 import { Brand } from '../../../../domain/brand';
+
 import { BrandEntity } from '../entities/brand.entity';
 
 export class BrandMapper {
@@ -9,6 +10,7 @@ export class BrandMapper {
     domain.slug = raw.slug;
     domain.description = raw.description;
     domain.isActive = raw.isActive;
+    domain.timezone = raw.timezone ?? null;
     domain.logoPath = raw.settings?.logoPath ?? null;
     domain.createdAt = raw.createdAt;
     domain.updatedAt = raw.updatedAt;
@@ -23,6 +25,7 @@ export class BrandMapper {
     entity.slug = domain.slug;
     entity.description = domain.description ?? null;
     entity.isActive = domain.isActive ?? true;
+    entity.timezone = domain.timezone ?? null;
     return entity;
   }
 }

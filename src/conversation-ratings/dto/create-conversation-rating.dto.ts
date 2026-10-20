@@ -14,6 +14,14 @@ import {
 export class CreateConversationRatingDto {
   @ApiProperty({
     required: false,
+    type: () => Number,
+  })
+  @IsOptional()
+  @IsNumber()
+  agentUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
     type: () => String,
   })
   @IsOptional()

@@ -13,6 +13,7 @@ import { WhatsappSendService } from './whatsapp-send.service';
 import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
 import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
+import { ConversationStatesService } from '../conversation-states/conversation-states.service';
 
 const CONNECTION = {
   id: 5,
@@ -45,6 +46,7 @@ const makeService = () => {
       content: 'hola',
       sentAt: new Date(),
     }),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<WhatsappMessageRepository>;
 
   const contactsService = {} as unknown as jest.Mocked<ContactsService>;
@@ -60,7 +62,7 @@ const makeService = () => {
 
   const igMessagesRepo = {
     create: jest.fn(),
-    findByConversationId: jest.fn(),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<InstagramMessageRepository>;
 
   const instagramSend = {
@@ -74,7 +76,7 @@ const makeService = () => {
 
   const messengerMessagesRepo = {
     create: jest.fn(),
-    findByConversationId: jest.fn(),
+    findByConversationId: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<MessengerMessageRepository>;
 
   const messengerSend = {
@@ -91,8 +93,15 @@ const makeService = () => {
     aggregateCsat: jest
       .fn()
       .mockResolvedValue({ count: 0, average: null, distribution: {} }),
+    listByBrand: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
   } as unknown as jest.Mocked<ConversationRatingsService>;
+
+  const conversationStates = {
+    findByConversation: jest.fn().mockResolvedValue(null),
+    findByBrand: jest.fn().mockResolvedValue([]),
+    setStatus: jest.fn().mockResolvedValue({ status: 'resolved' }),
+  } as unknown as jest.Mocked<ConversationStatesService>;
 
   const service = new SocialInboxService(
     connectionsRepo,
@@ -108,6 +117,7 @@ const makeService = () => {
     messengerSend,
     assignmentRepo,
     conversationRatings,
+    conversationStates,
   );
   return {
     service,
@@ -121,8 +131,71 @@ const makeService = () => {
     whatsappSend,
     instagramSend,
     messengerSend,
+    assignmentRepo,
+    conversationRatings,
+    conversationStates,
   };
 };
+
+describe('SocialInboxService.setConversationStatus', () => {
+  it('should brand-scope, stamp status and emit realtime', async () => {
+    const { service, conversationStates } = makeService();
+    const realtime = { emitConversationUpdated: jest.fn() };
+    (service as unknown as { realtime: unknown }).realtime = realtime;
+
+    await service.setConversationStatus(7, 'conv1', 'whatsapp', 'resolved', 1);
+
+    expect(conversationStates.setStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 7,
+        conversationId: 'conv1',
+        channel: 'whatsapp',
+        status: 'resolved',
+        userId: 1,
+      }),
+    );
+    expect(realtime.emitConversationUpdated).toHaveBeenCalled();
+  });
+
+  it('should reject an unsupported channel', async () => {
+    const { service } = makeService();
+    await expect(
+      service.setConversationStatus(7, 'conv1', 'tiktok', 'resolved', 1),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('SocialInboxService.submitRating', () => {
+  it('should attribute the rating to the resolver (agentUserId)', async () => {
+    const { service, conversationStates, conversationRatings } = makeService();
+    (conversationStates.findByConversation as jest.Mock).mockResolvedValue({
+      resolvedByUserId: 42,
+    });
+
+    await service.submitRating(7, 'conv1', { channel: 'whatsapp', score: 5 });
+
+    expect(conversationRatings.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agentUserId: 42, score: 5 }),
+    );
+  });
+
+  it('should fall back to the assignee when not yet resolved', async () => {
+    const { service, conversationStates, assignmentRepo, conversationRatings } =
+      makeService();
+    (conversationStates.findByConversation as jest.Mock).mockResolvedValue(
+      null,
+    );
+    (assignmentRepo.findByConversationId as jest.Mock).mockResolvedValue({
+      assignedUserId: 99,
+    });
+
+    await service.submitRating(7, 'conv1', { channel: 'whatsapp', score: 4 });
+
+    expect(conversationRatings.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agentUserId: 99 }),
+    );
+  });
+});
 
 describe('SocialInboxService.sendMessage', () => {
   it('should send via Cloud API and mirror the outbound message', async () => {
@@ -304,5 +377,50 @@ describe('SocialInboxService.conversationMetrics', () => {
     expect(m.conversations.active).toBe(2);
     expect(m.conversations.byChannel).toEqual({ whatsapp: 1, instagram: 1 });
     expect(m.conversations.assigned).toBe(2);
+  });
+
+  it('should derive byStatus, response time, volume series and agents', async () => {
+    const { service, conversationStates, conversationRatings, messagesRepo } =
+      makeService();
+    jest
+      .spyOn(service, 'listConversations')
+      .mockResolvedValue([convos[0]] as never); // only 'a' (whatsapp)
+
+    // 'a' resolved by user 1 on Oct 18.
+    (conversationStates.findByBrand as jest.Mock).mockResolvedValue([
+      {
+        conversationId: 'a',
+        status: 'resolved',
+        resolvedAt: new Date('2026-10-18T15:00:00Z'),
+        resolvedByUserId: 1,
+      },
+    ]);
+    // Inbound at 10:00, first reply at 10:03 → 180s.
+    (messagesRepo.findByConversationId as jest.Mock).mockResolvedValue([
+      { direction: 'in', sentAt: new Date('2026-10-18T10:00:00Z') },
+      { direction: 'out', sentAt: new Date('2026-10-18T10:03:00Z') },
+    ]);
+    (conversationRatings.listByBrand as jest.Mock).mockResolvedValue([
+      { agentUserId: 1, score: 5 },
+      { agentUserId: 1, score: 4 },
+    ]);
+
+    const m = await service.conversationMetrics(7);
+
+    expect(m.byStatus.resolved).toBe(1);
+    expect(m.responseTime.medianSeconds).toBe(180);
+    expect(m.responseTime.distribution).toEqual({ '1-5m': 1 });
+    expect(m.volumeSeries).toEqual([
+      { date: '2026-10-18', created: 1, resolved: 1 },
+    ]);
+    expect(m.agents).toEqual([
+      {
+        userId: 1,
+        convos: 1,
+        resolved: 1,
+        medianResponseSeconds: 180,
+        csatAverage: 4.5,
+      },
+    ]);
   });
 });

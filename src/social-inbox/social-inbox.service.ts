@@ -32,6 +32,8 @@ import { InstagramSendService } from './instagram-send.service';
 import { MessengerSendService } from './messenger-send.service';
 import { ConversationRatingsService } from '../conversation-ratings/conversation-ratings.service';
 import { ConversationRating } from '../conversation-ratings/domain/conversation-rating';
+import { ConversationStatesService } from '../conversation-states/conversation-states.service';
+import { ConversationState } from '../conversation-states/domain/conversation-state';
 
 // Channels for which we currently store conversations/messages. As new channel
 // sources are added (Messenger, TikTok, LinkedIn…), extend `listConversations` /
@@ -97,10 +99,10 @@ export interface UnifiedMessage {
 
 /**
  * Brand-scoped support metrics consumed by the web dashboard and the mobile
- * Statistics screen. Volume/activity/assignment are real (derived from the
- * unified conversation feed). `csat` is a stable block that stays zeroed until a
- * ConversationRating source feeds it. Response/resolution times are intentionally
- * absent: the inbox does not persist conversation status nor response timestamps.
+ * Statistics screen. Volume/activity/assignment come from the unified feed;
+ * `byStatus` from conversation_state; `responseTime` and the `created` series are
+ * derived from message timestamps (no webhook changes, works retroactively);
+ * the `resolved` series and resolution attribution from conversation_state.
  */
 export interface SupportMetrics {
   range: { from: string | null; to: string | null };
@@ -111,11 +113,60 @@ export interface SupportMetrics {
     assigned: number;
     unassigned: number;
   };
+  byStatus: Record<string, number>;
+  volumeSeries: { date: string; created: number; resolved: number }[];
+  responseTime: {
+    medianSeconds: number | null;
+    distribution: Record<string, number>;
+  };
   csat: {
     count: number;
     average: number | null;
     distribution: Record<string, number>;
   };
+  agents: {
+    userId: number;
+    convos: number;
+    resolved: number;
+    medianResponseSeconds: number | null;
+    csatAverage: number | null;
+  }[];
+}
+
+/** Median of a numeric list (null when empty). */
+function median(nums: number[]): number | null {
+  if (nums.length === 0) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 === 0 ? Math.round((s[mid - 1] + s[mid]) / 2) : s[mid];
+}
+
+/** First-inbound / first-response timestamps derived from a message list. */
+function deriveTimes(messages: { direction: string; sentAt: Date }[]): {
+  firstInboundAt: Date | null;
+  firstResponseAt: Date | null;
+} {
+  let firstInboundAt: Date | null = null;
+  let firstResponseAt: Date | null = null;
+  const sorted = [...messages].sort(
+    (a, b) => a.sentAt.getTime() - b.sentAt.getTime(),
+  );
+  for (const m of sorted) {
+    if (m.direction === 'in' && !firstInboundAt) firstInboundAt = m.sentAt;
+    if (m.direction === 'out' && firstInboundAt && !firstResponseAt) {
+      firstResponseAt = m.sentAt;
+    }
+  }
+  return { firstInboundAt, firstResponseAt };
+}
+
+/** Buckets a response time (seconds) into a human label. */
+function responseBucket(seconds: number): string {
+  if (seconds < 60) return '<1m';
+  if (seconds < 300) return '1-5m';
+  if (seconds < 1800) return '5-30m';
+  if (seconds < 7200) return '30m-2h';
+  return '>2h';
 }
 
 /** Short inbox-list preview from a message: its text, or a label for media. */
@@ -154,6 +205,7 @@ export class SocialInboxService {
     private readonly messengerSend: MessengerSendService,
     private readonly assignmentRepo: ConversationAssignmentRepository,
     private readonly conversationRatings: ConversationRatingsService,
+    private readonly conversationStates: ConversationStatesService,
     @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
@@ -258,6 +310,114 @@ export class SocialInboxService {
       to: range.to,
     });
 
+    // Lifecycle status: conversations with no state row are implicitly 'open'.
+    const states = await this.conversationStates.findByBrand(brandId);
+    const stateByConv = new Map(states.map((s) => [s.conversationId, s]));
+    const byStatus: Record<string, number> = {
+      open: 0,
+      pending: 0,
+      resolved: 0,
+      snoozed: 0,
+    };
+    for (const c of active) {
+      const st = stateByConv.get(c.id)?.status ?? 'open';
+      byStatus[st] = (byStatus[st] ?? 0) + 1;
+    }
+
+    // Response time + "created" series, derived from message timestamps.
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10); // UTC day; tz bucketing = follow-up
+    const seriesCreated: Record<string, number> = {};
+    const seriesResolved: Record<string, number> = {};
+    const responseDist: Record<string, number> = {};
+    const responseSecs: number[] = [];
+
+    // Per-agent accumulators (agent = resolver, else current assignee).
+    type AgentAcc = { convos: number; resolved: number; secs: number[] };
+    const agentAcc = new Map<number, AgentAcc>();
+    const accOf = (userId: number): AgentAcc => {
+      let a = agentAcc.get(userId);
+      if (!a) {
+        a = { convos: 0, resolved: 0, secs: [] };
+        agentAcc.set(userId, a);
+      }
+      return a;
+    };
+
+    for (const c of active) {
+      const state = stateByConv.get(c.id);
+      const agentId = state?.resolvedByUserId ?? c.assignment?.userId ?? null;
+      const acc = agentId != null ? accOf(agentId) : null;
+      if (acc) {
+        acc.convos += 1;
+        if (state?.status === 'resolved') acc.resolved += 1;
+      }
+
+      const msgs = await this.messagesForMetrics(c.channel, c.id);
+      const { firstInboundAt, firstResponseAt } = deriveTimes(msgs);
+      if (firstInboundAt && (!hasRange || inRange(firstInboundAt))) {
+        const k = dayKey(firstInboundAt);
+        seriesCreated[k] = (seriesCreated[k] ?? 0) + 1;
+      }
+      if (firstInboundAt && firstResponseAt) {
+        const secs = Math.round(
+          (firstResponseAt.getTime() - firstInboundAt.getTime()) / 1000,
+        );
+        if (secs >= 0) {
+          responseSecs.push(secs);
+          responseDist[responseBucket(secs)] =
+            (responseDist[responseBucket(secs)] ?? 0) + 1;
+          if (acc) acc.secs.push(secs);
+        }
+      }
+    }
+    for (const s of states) {
+      if (s.resolvedAt && (!hasRange || inRange(s.resolvedAt))) {
+        const k = dayKey(s.resolvedAt);
+        seriesResolved[k] = (seriesResolved[k] ?? 0) + 1;
+      }
+    }
+
+    // Per-agent CSAT from raw ratings (agentUserId populated on submit).
+    const ratings = await this.conversationRatings.listByBrand(brandId, {
+      from: range.from,
+      to: range.to,
+    });
+    const csatByAgent = new Map<number, number[]>();
+    for (const r of ratings) {
+      if (r.agentUserId == null) continue;
+      const arr = csatByAgent.get(r.agentUserId) ?? [];
+      arr.push(r.score);
+      csatByAgent.set(r.agentUserId, arr);
+    }
+
+    const agents = Array.from(agentAcc.entries())
+      .map(([userId, a]) => {
+        const scores = csatByAgent.get(userId) ?? [];
+        const csatAverage =
+          scores.length > 0
+            ? Math.round(
+                (scores.reduce((s, n) => s + n, 0) / scores.length) * 100,
+              ) / 100
+            : null;
+        return {
+          userId,
+          convos: a.convos,
+          resolved: a.resolved,
+          medianResponseSeconds: median(a.secs),
+          csatAverage,
+        };
+      })
+      .sort((x, y) => y.resolved - x.resolved);
+
+    const days = Array.from(
+      new Set([...Object.keys(seriesCreated), ...Object.keys(seriesResolved)]),
+    ).sort();
+    const volumeSeries = days.map((date) => ({
+      date,
+      created: seriesCreated[date] ?? 0,
+      resolved: seriesResolved[date] ?? 0,
+    }));
+
     return {
       range: {
         from: range.from?.toISOString() ?? null,
@@ -270,8 +430,35 @@ export class SocialInboxService {
         assigned,
         unassigned: active.length - assigned,
       },
+      byStatus,
+      volumeSeries,
+      responseTime: {
+        medianSeconds: median(responseSecs),
+        distribution: responseDist,
+      },
       csat,
+      agents,
     };
+  }
+
+  /**
+   * Raw message directions/timestamps for metrics derivation (per conversation).
+   * Follow-up: this is one query per conversation — batch if volume grows.
+   */
+  private async messagesForMetrics(
+    channel: string,
+    conversationId: string,
+  ): Promise<{ direction: string; sentAt: Date }[]> {
+    if (channel === ChannelEnum.whatsapp) {
+      return this.messagesRepo.findByConversationId(conversationId);
+    }
+    if (INSTAGRAM_CHANNELS.includes(channel as ChannelEnum)) {
+      return this.igMessagesRepo.findByConversationId(conversationId);
+    }
+    if (MESSENGER_CHANNELS.includes(channel as ChannelEnum)) {
+      return this.messengerMessagesRepo.findByConversationId(conversationId);
+    }
+    return [];
   }
 
   /**
@@ -284,13 +471,74 @@ export class SocialInboxService {
     conversationId: string,
     input: { channel: string; score: number; comment?: string | null },
   ): Promise<ConversationRating> {
+    // Attribute the rating to the agent who resolved the conversation (falls back
+    // to the current assignee) so the metrics leaderboard can group by agent.
+    const state = await this.conversationStates.findByConversation(
+      conversationId,
+      input.channel,
+    );
+    let agentUserId = state?.resolvedByUserId ?? null;
+    if (agentUserId == null) {
+      const assignment =
+        await this.assignmentRepo.findByConversationId(conversationId);
+      agentUserId = assignment?.assignedUserId ?? null;
+    }
+
     return this.conversationRatings.create({
       brandId,
       conversationId,
       channel: input.channel,
       score: input.score,
       comment: input.comment ?? null,
+      agentUserId,
     });
+  }
+
+  /**
+   * Sets the lifecycle status (open/pending/resolved/snoozed) of a conversation,
+   * brand-scoped via its connection. Resolving stamps the resolver. Emits a
+   * realtime `conversation:updated` so open inboxes refresh.
+   */
+  async setConversationStatus(
+    brandId: number,
+    conversationId: string,
+    channel: string,
+    status: string,
+    userId?: number | null,
+  ): Promise<ConversationState> {
+    let connectionId: number;
+    if (channel === ChannelEnum.whatsapp) {
+      connectionId = (await this.resolveScopedWhatsapp(brandId, conversationId))
+        .connection.id;
+    } else if (INSTAGRAM_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedInstagram(brandId, conversationId)
+      ).connection.id;
+    } else if (MESSENGER_CHANNELS.includes(channel as ChannelEnum)) {
+      connectionId = (
+        await this.resolveScopedMessenger(brandId, conversationId)
+      ).connection.id;
+    } else {
+      throw new BadRequestException(`Unsupported channel "${channel}"`);
+    }
+
+    const saved = await this.conversationStates.setStatus({
+      brandId,
+      conversationId,
+      channel,
+      status,
+      userId,
+    });
+
+    this.realtime?.emitConversationUpdated({
+      brandId,
+      channel,
+      connectionId,
+      conversationId,
+      lastMessageAt: null,
+    });
+
+    return saved;
   }
 
   /**

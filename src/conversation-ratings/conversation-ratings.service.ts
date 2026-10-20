@@ -22,6 +22,8 @@ export class ConversationRatingsService {
     return this.conversationRatingRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      agentUserId: createConversationRatingDto.agentUserId,
+
       comment: createConversationRatingDto.comment,
 
       brandId: createConversationRatingDto.brandId,
@@ -53,6 +55,11 @@ export class ConversationRatingsService {
 
   findByIds(ids: ConversationRating['id'][]) {
     return this.conversationRatingRepository.findByIds(ids);
+  }
+
+  /** Raw ratings for a brand (optional range) — for per-agent CSAT in metrics. */
+  listByBrand(brandId: number, range?: { from?: Date; to?: Date }) {
+    return this.conversationRatingRepository.findByBrand(brandId, range);
   }
 
   /** CSAT aggregate (count, average, score distribution) for a brand. */
@@ -91,6 +98,8 @@ export class ConversationRatingsService {
     return this.conversationRatingRepository.update(id, {
       // Do not remove comment below.
       // <updating-property-payload />
+      agentUserId: updateConversationRatingDto.agentUserId,
+
       comment: updateConversationRatingDto.comment,
 
       brandId: updateConversationRatingDto.brandId,

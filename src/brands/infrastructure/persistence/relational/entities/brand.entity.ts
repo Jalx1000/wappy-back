@@ -15,6 +15,12 @@ import { BrandSettingsEntity } from './brand-settings.entity';
 
 @Entity({ name: 'brand' })
 export class BrandEntity extends EntityRelationalHelper {
+  @Column({
+    nullable: true,
+    type: String,
+  })
+  timezone?: string | null;
+
   @PrimaryGeneratedColumn()
   id: number;
 
