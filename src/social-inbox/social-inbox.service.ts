@@ -124,6 +124,21 @@ export interface SupportMetrics {
     average: number | null;
     distribution: Record<string, number>;
   };
+  agents: {
+    userId: number;
+    convos: number;
+    resolved: number;
+    medianResponseSeconds: number | null;
+    csatAverage: number | null;
+  }[];
+}
+
+/** Median of a numeric list (null when empty). */
+function median(nums: number[]): number | null {
+  if (nums.length === 0) return null;
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 === 0 ? Math.round((s[mid - 1] + s[mid]) / 2) : s[mid];
 }
 
 /** First-inbound / first-response timestamps derived from a message list. */
@@ -316,7 +331,27 @@ export class SocialInboxService {
     const responseDist: Record<string, number> = {};
     const responseSecs: number[] = [];
 
+    // Per-agent accumulators (agent = resolver, else current assignee).
+    type AgentAcc = { convos: number; resolved: number; secs: number[] };
+    const agentAcc = new Map<number, AgentAcc>();
+    const accOf = (userId: number): AgentAcc => {
+      let a = agentAcc.get(userId);
+      if (!a) {
+        a = { convos: 0, resolved: 0, secs: [] };
+        agentAcc.set(userId, a);
+      }
+      return a;
+    };
+
     for (const c of active) {
+      const state = stateByConv.get(c.id);
+      const agentId = state?.resolvedByUserId ?? c.assignment?.userId ?? null;
+      const acc = agentId != null ? accOf(agentId) : null;
+      if (acc) {
+        acc.convos += 1;
+        if (state?.status === 'resolved') acc.resolved += 1;
+      }
+
       const msgs = await this.messagesForMetrics(c.channel, c.id);
       const { firstInboundAt, firstResponseAt } = deriveTimes(msgs);
       if (firstInboundAt && (!hasRange || inRange(firstInboundAt))) {
@@ -329,8 +364,9 @@ export class SocialInboxService {
         );
         if (secs >= 0) {
           responseSecs.push(secs);
-          const b = responseBucket(secs);
-          responseDist[b] = (responseDist[b] ?? 0) + 1;
+          responseDist[responseBucket(secs)] =
+            (responseDist[responseBucket(secs)] ?? 0) + 1;
+          if (acc) acc.secs.push(secs);
         }
       }
     }
@@ -341,6 +377,38 @@ export class SocialInboxService {
       }
     }
 
+    // Per-agent CSAT from raw ratings (agentUserId populated on submit).
+    const ratings = await this.conversationRatings.listByBrand(brandId, {
+      from: range.from,
+      to: range.to,
+    });
+    const csatByAgent = new Map<number, number[]>();
+    for (const r of ratings) {
+      if (r.agentUserId == null) continue;
+      const arr = csatByAgent.get(r.agentUserId) ?? [];
+      arr.push(r.score);
+      csatByAgent.set(r.agentUserId, arr);
+    }
+
+    const agents = Array.from(agentAcc.entries())
+      .map(([userId, a]) => {
+        const scores = csatByAgent.get(userId) ?? [];
+        const csatAverage =
+          scores.length > 0
+            ? Math.round(
+                (scores.reduce((s, n) => s + n, 0) / scores.length) * 100,
+              ) / 100
+            : null;
+        return {
+          userId,
+          convos: a.convos,
+          resolved: a.resolved,
+          medianResponseSeconds: median(a.secs),
+          csatAverage,
+        };
+      })
+      .sort((x, y) => y.resolved - x.resolved);
+
     const days = Array.from(
       new Set([...Object.keys(seriesCreated), ...Object.keys(seriesResolved)]),
     ).sort();
@@ -349,16 +417,6 @@ export class SocialInboxService {
       created: seriesCreated[date] ?? 0,
       resolved: seriesResolved[date] ?? 0,
     }));
-
-    let medianSeconds: number | null = null;
-    if (responseSecs.length > 0) {
-      const sorted = [...responseSecs].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      medianSeconds =
-        sorted.length % 2 === 0
-          ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-          : sorted[mid];
-    }
 
     return {
       range: {
@@ -374,8 +432,12 @@ export class SocialInboxService {
       },
       byStatus,
       volumeSeries,
-      responseTime: { medianSeconds, distribution: responseDist },
+      responseTime: {
+        medianSeconds: median(responseSecs),
+        distribution: responseDist,
+      },
       csat,
+      agents,
     };
   }
 

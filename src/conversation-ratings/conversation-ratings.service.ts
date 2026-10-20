@@ -57,6 +57,11 @@ export class ConversationRatingsService {
     return this.conversationRatingRepository.findByIds(ids);
   }
 
+  /** Raw ratings for a brand (optional range) — for per-agent CSAT in metrics. */
+  listByBrand(brandId: number, range?: { from?: Date; to?: Date }) {
+    return this.conversationRatingRepository.findByBrand(brandId, range);
+  }
+
   /** CSAT aggregate (count, average, score distribution) for a brand. */
   async aggregateCsat(
     brandId: number,

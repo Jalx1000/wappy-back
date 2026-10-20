@@ -93,6 +93,7 @@ const makeService = () => {
     aggregateCsat: jest
       .fn()
       .mockResolvedValue({ count: 0, average: null, distribution: {} }),
+    listByBrand: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
   } as unknown as jest.Mocked<ConversationRatingsService>;
 
@@ -378,8 +379,9 @@ describe('SocialInboxService.conversationMetrics', () => {
     expect(m.conversations.assigned).toBe(2);
   });
 
-  it('should derive byStatus, response time and volume series', async () => {
-    const { service, conversationStates, messagesRepo } = makeService();
+  it('should derive byStatus, response time, volume series and agents', async () => {
+    const { service, conversationStates, conversationRatings, messagesRepo } =
+      makeService();
     jest
       .spyOn(service, 'listConversations')
       .mockResolvedValue([convos[0]] as never); // only 'a' (whatsapp)
@@ -390,12 +392,17 @@ describe('SocialInboxService.conversationMetrics', () => {
         conversationId: 'a',
         status: 'resolved',
         resolvedAt: new Date('2026-10-18T15:00:00Z'),
+        resolvedByUserId: 1,
       },
     ]);
     // Inbound at 10:00, first reply at 10:03 → 180s.
     (messagesRepo.findByConversationId as jest.Mock).mockResolvedValue([
       { direction: 'in', sentAt: new Date('2026-10-18T10:00:00Z') },
       { direction: 'out', sentAt: new Date('2026-10-18T10:03:00Z') },
+    ]);
+    (conversationRatings.listByBrand as jest.Mock).mockResolvedValue([
+      { agentUserId: 1, score: 5 },
+      { agentUserId: 1, score: 4 },
     ]);
 
     const m = await service.conversationMetrics(7);
@@ -405,6 +412,15 @@ describe('SocialInboxService.conversationMetrics', () => {
     expect(m.responseTime.distribution).toEqual({ '1-5m': 1 });
     expect(m.volumeSeries).toEqual([
       { date: '2026-10-18', created: 1, resolved: 1 },
+    ]);
+    expect(m.agents).toEqual([
+      {
+        userId: 1,
+        convos: 1,
+        resolved: 1,
+        medianResponseSeconds: 180,
+        csatAverage: 4.5,
+      },
     ]);
   });
 });
