@@ -8,20 +8,23 @@ import { AgentRuntimeResolver } from './runtime/agent-runtime.resolver';
 import { BrandsModule } from '../brands/brands.module';
 import { ProductsModule } from '../products/products.module';
 import { ContactsModule } from '../contacts/contacts.module';
+import { OrdersModule } from '../orders/orders.module';
 import { GetProductsTool } from './tools/get-products.tool';
 import { GetCustomerTool } from './tools/get-customer.tool';
+import { GetOrderTool } from './tools/get-order.tool';
 import { AgentToolRegistry } from './tools/agent-tool.registry';
 
 // Postgres deployment (DATABASE_TYPE=postgres): relational persistence only.
 // Multi-provider: Anthropic (Claude) + OpenAI (ChatGPT), picked per-agent by
 // AgentRuntimeResolver. Brand-scoped via BrandGuard (x-brand-id).
-// Tools (get_products/get_customer) are selected per-agent via toolsEnabled.
+// Tools (get_products/get_customer/get_order) selected per-agent via toolsEnabled.
 @Module({
   imports: [
     RelationalAgentPersistenceModule,
     BrandsModule,
     ProductsModule,
     ContactsModule,
+    OrdersModule,
   ],
   controllers: [AgentsController],
   providers: [
@@ -31,6 +34,7 @@ import { AgentToolRegistry } from './tools/agent-tool.registry';
     AgentRuntimeResolver,
     GetProductsTool,
     GetCustomerTool,
+    GetOrderTool,
     AgentToolRegistry,
   ],
   exports: [AgentsService, RelationalAgentPersistenceModule],
