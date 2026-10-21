@@ -78,7 +78,7 @@ export class ProductsController {
     return infinityPagination(
       await this.productsService.findAllWithPagination({
         paginationOptions: { page, limit },
-        // brandId: req.brand.id,   // ← filtra SOLO productos de la marca activa
+        brandId: req.brand.id, // solo productos de la marca activa (multi-tenant)
       }),
       { page, limit },
     );
