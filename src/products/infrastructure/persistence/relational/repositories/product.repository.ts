@@ -32,6 +32,7 @@ export class ProductRelationalRepository implements ProductRepository {
   }): Promise<Product[]> {
     const entities = await this.productRepository.find({
       where: brandId ? { brandId } : {},
+      order: { createdAt: 'DESC' }, // newest first → a just-created product shows on page 1
       skip: (paginationOptions.page - 1) * paginationOptions.limit,
       take: paginationOptions.limit,
       relations: ['brand'],
