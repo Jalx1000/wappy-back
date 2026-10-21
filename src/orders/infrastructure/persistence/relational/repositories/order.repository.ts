@@ -52,6 +52,21 @@ export class OrderRelationalRepository implements OrderRepository {
     return entities.map((entity) => OrderMapper.toDomain(entity));
   }
 
+  async findByBrand(brandId: number): Promise<Order[]> {
+    const entities = await this.orderRepository.find({
+      where: { brandId },
+      order: { createdAt: 'DESC' },
+    });
+    return entities.map((entity) => OrderMapper.toDomain(entity));
+  }
+
+  async findByContact(contactId: string): Promise<NullableType<Order>> {
+    const entity = await this.orderRepository.findOne({
+      where: { contactId },
+    });
+    return entity ? OrderMapper.toDomain(entity) : null;
+  }
+
   async update(id: Order['id'], payload: Partial<Order>): Promise<Order> {
     const entity = await this.orderRepository.findOne({
       where: { id },

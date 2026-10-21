@@ -5,11 +5,13 @@ import {
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { RelationalOrderPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
+import { BrandsModule } from '../brands/brands.module';
 
 @Module({
   imports: [
     // do not remove this comment
     RelationalOrderPersistenceModule,
+    BrandsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

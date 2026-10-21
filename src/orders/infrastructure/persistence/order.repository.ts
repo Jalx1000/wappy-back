@@ -18,6 +18,12 @@ export abstract class OrderRepository {
 
   abstract findByIds(ids: Order['id'][]): Promise<Order[]>;
 
+  // All orders of a brand — for the kanban board.
+  abstract findByBrand(brandId: number): Promise<Order[]>;
+
+  // The single order of a contact (1:1) — the idempotency key for auto-creation.
+  abstract findByContact(contactId: string): Promise<NullableType<Order>>;
+
   abstract update(
     id: Order['id'],
     payload: DeepPartial<Order>,
