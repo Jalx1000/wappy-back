@@ -102,8 +102,11 @@ import { ConversationRatingsModule } from './conversation-ratings/conversation-r
 
 import { ConversationStatesModule } from './conversation-states/conversation-states.module';
 
+import { OrdersModule } from './orders/orders.module';
+
 @Module({
   imports: [
+    OrdersModule,
     ConversationStatesModule,
     ConversationRatingsModule,
     CompaniesModule,

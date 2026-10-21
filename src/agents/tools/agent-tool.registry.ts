@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AgentTool } from '../runtime/agent-runtime';
 import { GetProductsTool } from './get-products.tool';
 import { GetCustomerTool } from './get-customer.tool';
+import { GetOrderTool } from './get-order.tool';
 
 /**
  * Collects the available agent tools and selects which ones a given agent may
@@ -12,8 +13,12 @@ import { GetCustomerTool } from './get-customer.tool';
 export class AgentToolRegistry {
   private readonly all: AgentTool[];
 
-  constructor(products: GetProductsTool, customer: GetCustomerTool) {
-    this.all = [products, customer];
+  constructor(
+    products: GetProductsTool,
+    customer: GetCustomerTool,
+    order: GetOrderTool,
+  ) {
+    this.all = [products, customer, order];
   }
 
   /** The tools enabled for an agent, in registry order. */

@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import { ContactRepository } from './infrastructure/persistence/contact.repository';
 import { ContactIdentityRepository } from '../contact-identities/infrastructure/persistence/contact-identity.repository';
+import { OrdersService } from '../orders/orders.service';
 
 const makeService = () => {
   const contactRepo = {
@@ -19,8 +20,12 @@ const makeService = () => {
     findByContactIds: jest.fn(),
   } as unknown as jest.Mocked<ContactIdentityRepository>;
 
-  const service = new ContactsService(contactRepo, identityRepo);
-  return { service, contactRepo, identityRepo };
+  const orders = {
+    ensureForContact: jest.fn().mockResolvedValue({ id: 'o1' }),
+  } as unknown as jest.Mocked<OrdersService>;
+
+  const service = new ContactsService(contactRepo, identityRepo, orders);
+  return { service, contactRepo, identityRepo, orders };
 };
 
 const identityInput = {
@@ -34,9 +39,9 @@ const identityInput = {
 
 describe('ContactsService.upsertIdentity', () => {
   it('should create a new contact + identity when none exists', async () => {
-    const { service, contactRepo, identityRepo } = makeService();
+    const { service, contactRepo, identityRepo, orders } = makeService();
     identityRepo.findByChannelConnectionExternal.mockResolvedValue(null);
-    contactRepo.create.mockResolvedValue({ id: 'c1' } as never);
+    contactRepo.create.mockResolvedValue({ id: 'c1', brandId: 7 } as never);
     identityRepo.create.mockResolvedValue({
       id: 'i1',
       contactId: 'c1',
@@ -55,8 +60,44 @@ describe('ContactsService.upsertIdentity', () => {
         externalId: '16505551234',
       }),
     );
+    // New contact → its kanban order is opened (brand-scoped).
+    expect(orders.ensureForContact).toHaveBeenCalledWith(7, 'c1');
     expect(result.contact.id).toBe('c1');
     expect(result.identity.contactId).toBe('c1');
+  });
+
+  it('should not break ingest when the order hook fails', async () => {
+    const { service, contactRepo, identityRepo, orders } = makeService();
+    identityRepo.findByChannelConnectionExternal.mockResolvedValue(null);
+    contactRepo.create.mockResolvedValue({ id: 'c1', brandId: 7 } as never);
+    identityRepo.create.mockResolvedValue({
+      id: 'i1',
+      contactId: 'c1',
+    } as never);
+    (orders.ensureForContact as jest.Mock).mockRejectedValue(
+      new Error('db down'),
+    );
+
+    const result = await service.upsertIdentity(identityInput);
+
+    expect(result.contact.id).toBe('c1'); // ingest still succeeds
+  });
+
+  it('should not open an order when the identity already exists', async () => {
+    const { service, contactRepo, identityRepo, orders } = makeService();
+    identityRepo.findByChannelConnectionExternal.mockResolvedValue({
+      id: 'i1',
+      contactId: 'c1',
+    } as never);
+    identityRepo.update.mockResolvedValue({
+      id: 'i1',
+      contactId: 'c1',
+    } as never);
+    contactRepo.findById.mockResolvedValue({ id: 'c1', brandId: 7 } as never);
+
+    await service.upsertIdentity(identityInput);
+
+    expect(orders.ensureForContact).not.toHaveBeenCalled();
   });
 
   it('should update the existing identity and not create a new contact', async () => {
@@ -82,6 +123,18 @@ describe('ContactsService.upsertIdentity', () => {
     );
     expect(contactRepo.create).not.toHaveBeenCalled();
     expect(result.contact.id).toBe('c1');
+  });
+});
+
+describe('ContactsService.create', () => {
+  it('should open a kanban order for a manually created contact', async () => {
+    const { service, contactRepo, orders } = makeService();
+    contactRepo.create.mockResolvedValue({ id: 'c9', brandId: 7 } as never);
+
+    const contact = await service.create({ brandId: 7 } as never);
+
+    expect(orders.ensureForContact).toHaveBeenCalledWith(7, 'c9');
+    expect(contact.id).toBe('c9');
   });
 });
 
