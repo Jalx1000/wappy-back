@@ -2,7 +2,9 @@ import {
   // common
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
@@ -11,6 +13,7 @@ import { ContactIdentityRepository } from '../contact-identities/infrastructure/
 import { ContactIdentity } from '../contact-identities/domain/contact-identity';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Contact } from './domain/contact';
+import { OrdersService } from '../orders/orders.service';
 
 // Single entry point every channel (WhatsApp, TikTok, LinkedIn, Messenger,
 // Instagram, …) uses to attach one of its users to a central Contact.
@@ -44,11 +47,28 @@ export interface UpdateContactProfile {
 
 @Injectable()
 export class ContactsService {
+  private readonly logger = new Logger(ContactsService.name);
+
   constructor(
     // Dependencies here
     private readonly contactRepository: ContactRepository,
     private readonly identityRepository: ContactIdentityRepository,
+    // Optional: when wired, every new contact gets a kanban order. Best-effort —
+    // a failure here must never break contact creation or message ingest.
+    @Optional() private readonly orders?: OrdersService,
   ) {}
+
+  /** Best-effort: create the contact's kanban order; never throws to the caller. */
+  private async ensureOrder(brandId: number, contactId: string): Promise<void> {
+    if (!this.orders) return;
+    try {
+      await this.orders.ensureForContact(brandId, contactId);
+    } catch (e) {
+      this.logger.warn(
+        `could not ensure order for contact ${contactId}: ${String(e)}`,
+      );
+    }
+  }
 
   /**
    * Idempotent upsert of a channel identity into the central contact model.
@@ -118,6 +138,9 @@ export class ContactsService {
       profileName: input.profileName ?? null,
       phone: input.phone ?? null,
     });
+
+    // New contact → open its kanban order (best-effort; never blocks ingest).
+    await this.ensureOrder(contact.brandId, contact.id);
 
     return { contact, identity };
   }
@@ -241,7 +264,7 @@ export class ContactsService {
     // Do not remove comment below.
     // <creating-property />
 
-    return this.contactRepository.create({
+    const contact = await this.contactRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
       mergedIntoContactId: createContactDto.mergedIntoContactId,
@@ -258,6 +281,11 @@ export class ContactsService {
 
       brandId: createContactDto.brandId,
     });
+
+    // Manually created contact → open its kanban order (best-effort).
+    await this.ensureOrder(contact.brandId, contact.id);
+
+    return contact;
   }
 
   findAllWithPagination({
