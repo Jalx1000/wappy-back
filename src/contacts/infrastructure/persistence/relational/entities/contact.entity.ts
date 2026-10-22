@@ -49,6 +49,26 @@ export class ContactEntity extends EntityRelationalHelper {
   })
   displayName?: string | null;
 
+  // Integration CRM fields (populated via the public API). jsonb so the public
+  // contract (tags/consent/metadata) can grow without a migration each time.
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+  })
+  tags?: string[] | null;
+
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+  })
+  consent?: Record<string, unknown> | null;
+
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+  })
+  metadata?: Record<string, unknown> | null;
+
   @Column({
     nullable: false,
     type: Number,

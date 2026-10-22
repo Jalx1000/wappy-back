@@ -10,6 +10,7 @@ const makeService = () => {
     findById: jest.fn(),
     update: jest.fn(),
     findByBrandWithPagination: jest.fn(),
+    findByBrandEmailOrPhone: jest.fn(),
   } as unknown as jest.Mocked<ContactRepository>;
 
   const identityRepo = {
@@ -135,6 +136,60 @@ describe('ContactsService.create', () => {
 
     expect(orders.ensureForContact).toHaveBeenCalledWith(7, 'c9');
     expect(contact.id).toBe('c9');
+  });
+});
+
+describe('ContactsService.upsertByEmailOrPhone', () => {
+  it('should create a new contact and open its order when no match', async () => {
+    const { service, contactRepo, orders } = makeService();
+    (contactRepo.findByBrandEmailOrPhone as jest.Mock).mockResolvedValue(null);
+    contactRepo.create.mockResolvedValue({ id: 'c1', brandId: 7 } as never);
+
+    const { contact, created } = await service.upsertByEmailOrPhone(7, {
+      email: 'a@b.com',
+      name: 'Ana',
+      tags: ['newsletter'],
+    });
+
+    expect(created).toBe(true);
+    expect(contactRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 7,
+        email: 'a@b.com',
+        tags: ['newsletter'],
+      }),
+    );
+    expect(orders.ensureForContact).toHaveBeenCalledWith(7, 'c1'); // kanban card
+    expect(contact.id).toBe('c1');
+  });
+
+  it('should update the existing contact when matched (no new order)', async () => {
+    const { service, contactRepo, orders } = makeService();
+    (contactRepo.findByBrandEmailOrPhone as jest.Mock).mockResolvedValue({
+      id: 'c9',
+      brandId: 7,
+      displayName: 'Old',
+    });
+    contactRepo.update.mockResolvedValue({ id: 'c9', brandId: 7 } as never);
+
+    const { created } = await service.upsertByEmailOrPhone(7, {
+      email: 'a@b.com',
+      name: 'Nuevo',
+    });
+
+    expect(created).toBe(false);
+    expect(contactRepo.update).toHaveBeenCalledWith(
+      'c9',
+      expect.objectContaining({ displayName: 'Nuevo' }),
+    );
+    expect(orders.ensureForContact).not.toHaveBeenCalled();
+  });
+
+  it('should reject when neither email nor phone is given', async () => {
+    const { service } = makeService();
+    await expect(service.upsertByEmailOrPhone(7, {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });
 

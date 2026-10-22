@@ -83,6 +83,26 @@ export class ContactRelationalRepository implements ContactRepository {
     return entities.map((entity) => ContactMapper.toDomain(entity));
   }
 
+  async findByBrandEmailOrPhone(
+    brandId: number,
+    email?: string | null,
+    phone?: string | null,
+  ): Promise<NullableType<Contact>> {
+    // Prefer an email match, then fall back to phone. Only non-empty criteria.
+    for (const where of [
+      email ? { brandId, email } : null,
+      phone ? { brandId, phone } : null,
+    ]) {
+      if (!where) continue;
+      const entity = await this.contactRepository.findOne({
+        where,
+        order: { createdAt: 'DESC' },
+      });
+      if (entity) return ContactMapper.toDomain(entity);
+    }
+    return null;
+  }
+
   async update(id: Contact['id'], payload: Partial<Contact>): Promise<Contact> {
     const entity = await this.contactRepository.findOne({
       where: { id },
@@ -94,10 +114,12 @@ export class ContactRelationalRepository implements ContactRepository {
 
     const updatedEntity = await this.contactRepository.save(
       this.contactRepository.create(
+        // entity → full Contact; payload only overrides a subset, so the merge
+        // is a valid Contact (the cast sidesteps DeepPartial's array widening).
         ContactMapper.toPersistence({
           ...ContactMapper.toDomain(entity),
           ...payload,
-        }),
+        } as Contact),
       ),
     );
 

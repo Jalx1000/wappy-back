@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class Contact {
   @ApiProperty({
@@ -36,6 +36,15 @@ export class Contact {
     nullable: true,
   })
   displayName?: string | null;
+
+  @ApiPropertyOptional({ type: () => [String] })
+  tags?: string[] | null;
+
+  @ApiPropertyOptional()
+  consent?: Record<string, unknown> | null;
+
+  @ApiPropertyOptional()
+  metadata?: Record<string, unknown> | null;
 
   @ApiProperty({
     type: () => Number,
