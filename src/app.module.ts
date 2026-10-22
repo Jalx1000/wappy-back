@@ -106,8 +106,11 @@ import { OrdersModule } from './orders/orders.module';
 
 import { ApiKeysModule } from './api-keys/api-keys.module';
 
+import { IntegrationModule } from './integration/integration.module';
+
 @Module({
   imports: [
+    IntegrationModule,
     ApiKeysModule,
     OrdersModule,
     ConversationStatesModule,

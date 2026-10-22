@@ -1,4 +1,3 @@
-import { DeepPartial } from '../../../utils/types/deep-partial.type';
 import { NullableType } from '../../../utils/types/nullable.type';
 import { IPaginationOptions } from '../../../utils/types/pagination-options';
 import { Contact } from '../../domain/contact';
@@ -30,9 +29,17 @@ export abstract class ContactRepository {
 
   abstract findByIds(ids: Contact['id'][]): Promise<Contact[]>;
 
+  // Brand-scoped match by email first, then phone — the upsert key for the
+  // public integration API. Returns the newest match or null.
+  abstract findByBrandEmailOrPhone(
+    brandId: number,
+    email?: string | null,
+    phone?: string | null,
+  ): Promise<NullableType<Contact>>;
+
   abstract update(
     id: Contact['id'],
-    payload: DeepPartial<Contact>,
+    payload: Partial<Contact>,
   ): Promise<Contact | null>;
 
   abstract remove(id: Contact['id']): Promise<void>;

@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ContactEntity } from '../entities/contact.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
-import { DeepPartial } from '../../../../../utils/types/deep-partial.type';
 import { Contact } from '../../../../domain/contact';
 import { ContactRepository } from '../../contact.repository';
 import { ContactMapper } from '../mappers/contact.mapper';
@@ -84,10 +83,27 @@ export class ContactRelationalRepository implements ContactRepository {
     return entities.map((entity) => ContactMapper.toDomain(entity));
   }
 
-  async update(
-    id: Contact['id'],
-    payload: DeepPartial<Contact>,
-  ): Promise<Contact> {
+  async findByBrandEmailOrPhone(
+    brandId: number,
+    email?: string | null,
+    phone?: string | null,
+  ): Promise<NullableType<Contact>> {
+    // Prefer an email match, then fall back to phone. Only non-empty criteria.
+    for (const where of [
+      email ? { brandId, email } : null,
+      phone ? { brandId, phone } : null,
+    ]) {
+      if (!where) continue;
+      const entity = await this.contactRepository.findOne({
+        where,
+        order: { createdAt: 'DESC' },
+      });
+      if (entity) return ContactMapper.toDomain(entity);
+    }
+    return null;
+  }
+
+  async update(id: Contact['id'], payload: Partial<Contact>): Promise<Contact> {
     const entity = await this.contactRepository.findOne({
       where: { id },
     });

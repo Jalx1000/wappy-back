@@ -146,6 +146,59 @@ export class ContactsService {
   }
 
   /**
+   * Upsert a contact by email (then phone) for the public integration API.
+   * Creates when no match, else refreshes the provided fields. Also opens the
+   * contact's kanban order on create (best-effort). Returns whether it was new.
+   */
+  async upsertByEmailOrPhone(
+    brandId: number,
+    input: {
+      email?: string | null;
+      phone?: string | null;
+      name?: string | null;
+      tags?: string[] | null;
+      consent?: Record<string, unknown> | null;
+      metadata?: Record<string, unknown> | null;
+    },
+  ): Promise<{ contact: Contact; created: boolean }> {
+    if (!input.email && !input.phone) {
+      throw new BadRequestException('email or phone is required');
+    }
+    const existing = await this.contactRepository.findByBrandEmailOrPhone(
+      brandId,
+      input.email,
+      input.phone,
+    );
+
+    if (existing) {
+      const updated = await this.contactRepository.update(existing.id, {
+        displayName: input.name ?? existing.displayName,
+        email: input.email ?? existing.email,
+        phone: input.phone ?? existing.phone,
+        tags: input.tags ?? existing.tags,
+        consent: input.consent ?? existing.consent,
+        metadata: input.metadata ?? existing.metadata,
+      });
+      return { contact: updated ?? existing, created: false };
+    }
+
+    const contact = await this.contactRepository.create({
+      brandId,
+      displayName: input.name ?? null,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      avatarUrl: null,
+      notes: null,
+      mergedIntoContactId: null,
+      tags: input.tags ?? null,
+      consent: input.consent ?? null,
+      metadata: input.metadata ?? null,
+    });
+    await this.ensureOrder(contact.brandId, contact.id);
+    return { contact, created: true };
+  }
+
+  /**
    * Manual merge: reparents every identity of `loserId` onto `survivorId` and
    * tombstones the loser (mergedIntoContactId → survivor). Active-contact
    * queries should filter `mergedIntoContactId IS NULL`.
