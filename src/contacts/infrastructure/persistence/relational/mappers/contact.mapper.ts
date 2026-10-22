@@ -17,6 +17,12 @@ export class ContactMapper {
 
     domainEntity.displayName = raw.displayName;
 
+    domainEntity.tags = raw.tags;
+
+    domainEntity.consent = raw.consent;
+
+    domainEntity.metadata = raw.metadata;
+
     domainEntity.brandId = raw.brandId;
 
     domainEntity.id = raw.id;
@@ -39,6 +45,12 @@ export class ContactMapper {
     persistenceEntity.phone = domainEntity.phone;
 
     persistenceEntity.displayName = domainEntity.displayName;
+
+    persistenceEntity.tags = domainEntity.tags;
+
+    persistenceEntity.consent = domainEntity.consent;
+
+    persistenceEntity.metadata = domainEntity.metadata;
 
     persistenceEntity.brandId = domainEntity.brandId;
 

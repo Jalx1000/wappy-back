@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ContactEntity } from '../entities/contact.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
+import { DeepPartial } from '../../../../../utils/types/deep-partial.type';
 import { Contact } from '../../../../domain/contact';
 import { ContactRepository } from '../../contact.repository';
 import { ContactMapper } from '../mappers/contact.mapper';
@@ -83,7 +84,10 @@ export class ContactRelationalRepository implements ContactRepository {
     return entities.map((entity) => ContactMapper.toDomain(entity));
   }
 
-  async update(id: Contact['id'], payload: Partial<Contact>): Promise<Contact> {
+  async update(
+    id: Contact['id'],
+    payload: DeepPartial<Contact>,
+  ): Promise<Contact> {
     const entity = await this.contactRepository.findOne({
       where: { id },
     });
@@ -94,10 +98,12 @@ export class ContactRelationalRepository implements ContactRepository {
 
     const updatedEntity = await this.contactRepository.save(
       this.contactRepository.create(
+        // entity → full Contact; payload only overrides a subset, so the merge
+        // is a valid Contact (the cast sidesteps DeepPartial's array widening).
         ContactMapper.toPersistence({
           ...ContactMapper.toDomain(entity),
           ...payload,
-        }),
+        } as Contact),
       ),
     );
 

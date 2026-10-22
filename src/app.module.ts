@@ -104,8 +104,11 @@ import { ConversationStatesModule } from './conversation-states/conversation-sta
 
 import { OrdersModule } from './orders/orders.module';
 
+import { ApiKeysModule } from './api-keys/api-keys.module';
+
 @Module({
   imports: [
+    ApiKeysModule,
     OrdersModule,
     ConversationStatesModule,
     ConversationRatingsModule,
