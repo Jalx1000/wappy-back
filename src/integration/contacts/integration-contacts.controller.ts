@@ -5,20 +5,25 @@ import {
   Post,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { ContactsService } from '../../contacts/contacts.service';
 import { ApiKeyGuard } from '../../api-keys/guards/api-key.guard';
+import { IdempotencyInterceptor } from '../idempotency/idempotency.interceptor';
 import { Brand } from '../../brands/domain/brand';
 import { UpsertContactDto } from './dto/upsert-contact.dto';
 
 /**
  * Public integration API — contacts (brief §2A). Auth by API key (Bearer); the
- * key resolves the brand, so there is no x-brand-id here. Path:
+ * key resolves the brand, so there is no x-brand-id here. Rate-limited, and
+ * idempotent via the `Idempotency-Key` header. Path:
  * `POST /api/v1/integration/contacts`.
  */
 @ApiTags('Integration')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ThrottlerGuard)
+@UseInterceptors(IdempotencyInterceptor)
 @Controller({ path: 'integration/contacts', version: '1' })
 export class IntegrationContactsController {
   constructor(private readonly contacts: ContactsService) {}

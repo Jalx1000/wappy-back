@@ -1,15 +1,25 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { ApiKeyGuard } from '../../api-keys/guards/api-key.guard';
+import { IdempotencyInterceptor } from '../idempotency/idempotency.interceptor';
 import { IntegrationEmailsService } from './integration-emails.service';
 import { SendEmailDto } from './dto/send-email.dto';
 
 /**
- * Public integration API — transactional email (brief §2B). API-key auth.
- * Path: `POST /api/v1/integration/emails`.
+ * Public integration API — transactional email (brief §2B). API-key auth,
+ * rate-limited, idempotent via `Idempotency-Key`. Path:
+ * `POST /api/v1/integration/emails`.
  */
 @ApiTags('Integration')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ThrottlerGuard)
+@UseInterceptors(IdempotencyInterceptor)
 @Controller({ path: 'integration/emails', version: '1' })
 export class IntegrationEmailsController {
   constructor(private readonly emails: IntegrationEmailsService) {}
