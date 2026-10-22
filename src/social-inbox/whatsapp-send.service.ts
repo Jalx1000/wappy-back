@@ -57,6 +57,37 @@ export class WhatsappSendService {
     return this.postMessage(connection, { to, type: 'text', text: { body } });
   }
 
+  /**
+   * Sends a pre-approved template (business-initiated, works outside the 24h
+   * window). `params` fill the body's positional {{1}}, {{2}}… placeholders.
+   */
+  async sendTemplate(
+    connection: Connection,
+    to: string,
+    templateName: string,
+    languageCode: string,
+    params: string[],
+  ): Promise<string> {
+    const components =
+      params.length > 0
+        ? [
+            {
+              type: 'body',
+              parameters: params.map((text) => ({ type: 'text', text })),
+            },
+          ]
+        : [];
+    return this.postMessage(connection, {
+      to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        ...(components.length > 0 ? { components } : {}),
+      },
+    });
+  }
+
   /** Sends a location message. */
   async sendLocation(
     connection: Connection,
