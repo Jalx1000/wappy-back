@@ -108,8 +108,11 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 
 import { IntegrationModule } from './integration/integration.module';
 
+import { WebhookEndpointsModule } from './webhook-endpoints/webhook-endpoints.module';
+
 @Module({
   imports: [
+    WebhookEndpointsModule,
     IntegrationModule,
     ApiKeysModule,
     OrdersModule,
