@@ -8,7 +8,6 @@ import {
   Delete,
   UseGuards,
   Query,
-  Request,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,6 +25,7 @@ import {
 import { Product } from './domain/product';
 import { AuthGuard } from '@nestjs/passport';
 import { BrandGuard } from '../brands/guards/brand.guard';
+import { CurrentBrand } from '../brands/decorators/current-brand.decorator';
 import {
   InfinityPaginationResponse,
   InfinityPaginationResponseDto,
@@ -50,14 +50,14 @@ export class ProductsController {
     type: Product,
   })
   create(
-    @Request() req: { brand: Brand },
+    @CurrentBrand() brand: Brand,
     @Body() createProductDto: CreateProductDto,
   ) {
     // Override: el producto SIEMPRE pertenece a la marca del header (no la del body)
     // — evita que un usuario cree productos en otra marca aunque envíe otro brandId
     return this.productsService.create({
       ...createProductDto,
-      brandId: req.brand.id,
+      brandId: brand.id,
     });
   }
 
@@ -66,7 +66,7 @@ export class ProductsController {
     type: InfinityPaginationResponse(Product),
   })
   async findAll(
-    @Request() req: { brand: Brand },
+    @CurrentBrand() brand: Brand,
     @Query() query: FindAllProductsDto,
   ): Promise<InfinityPaginationResponseDto<Product>> {
     const page = query?.page ?? 1;
@@ -78,7 +78,7 @@ export class ProductsController {
     return infinityPagination(
       await this.productsService.findAllWithPagination({
         paginationOptions: { page, limit },
-        brandId: req.brand.id, // solo productos de la marca activa (multi-tenant)
+        brandId: brand.id, // solo productos de la marca activa (multi-tenant)
       }),
       { page, limit },
     );
@@ -93,11 +93,11 @@ export class ProductsController {
   @ApiOkResponse({
     type: Product,
   })
-  async findById(@Request() req: { brand: Brand }, @Param('id') id: string) {
+  async findById(@CurrentBrand() brand: Brand, @Param('id') id: string) {
     const product = await this.productsService.findById(id);
     if (!product) throw new NotFoundException('Product not found');
     // 🔒 Scoping: no permitir ver productos de otra marca aunque sepas su ID
-    if (product.brandId !== req.brand.id) {
+    if (product.brandId !== brand.id) {
       throw new ForbiddenException(
         'This product does not belong to your brand',
       );
@@ -115,13 +115,13 @@ export class ProductsController {
     type: Product,
   })
   async update(
-    @Request() req: { brand: Brand },
+    @CurrentBrand() brand: Brand,
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
   ) {
     const existing = await this.productsService.findById(id);
     if (!existing) throw new NotFoundException('Product not found');
-    if (existing.brandId !== req.brand.id) {
+    if (existing.brandId !== brand.id) {
       throw new ForbiddenException(
         'This product does not belong to your brand',
       );
@@ -138,10 +138,10 @@ export class ProductsController {
     type: String,
     required: true,
   })
-  async remove(@Request() req: { brand: Brand }, @Param('id') id: string) {
+  async remove(@CurrentBrand() brand: Brand, @Param('id') id: string) {
     const existing = await this.productsService.findById(id);
     if (!existing) throw new NotFoundException('Product not found');
-    if (existing.brandId !== req.brand.id) {
+    if (existing.brandId !== brand.id) {
       throw new ForbiddenException(
         'This product does not belong to your brand',
       );
