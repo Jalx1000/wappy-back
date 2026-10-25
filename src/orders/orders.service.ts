@@ -104,17 +104,23 @@ export class OrdersService {
     return this.orderRepository.countByContact(contactId);
   }
 
-  /** Edits an order (move stage / total / notes), brand-scoped. */
+  /** Edits an order (move stage / total / notes / line items), brand-scoped. */
   async updateForBrand(
     brandId: number,
     id: string,
-    patch: { status?: OrderStatus; total?: number; notes?: string | null },
+    patch: {
+      status?: OrderStatus;
+      total?: number;
+      notes?: string | null;
+      items?: OrderItem[] | null;
+    },
   ): Promise<Order> {
     await this.getForBrand(brandId, id);
     const updated = await this.orderRepository.update(id, {
       status: patch.status,
       total: patch.total,
       notes: patch.notes,
+      items: patch.items,
     });
     if (!updated) throw new NotFoundException('Order not found');
     return updated;

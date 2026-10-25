@@ -158,6 +158,18 @@ describe('OrdersService N-orders-per-contact (S4)', () => {
 
     expect(await service.countForContact('c1')).toBe(3);
   });
+
+  it('should pass line items through updateForBrand (manual product of interest, S3)', async () => {
+    const { service, repo } = makeService();
+    (repo.findById as jest.Mock).mockResolvedValue({ id: 'o1', brandId: 7 });
+
+    await service.updateForBrand(7, 'o1', { items });
+
+    expect(repo.update).toHaveBeenCalledWith(
+      'o1',
+      expect.objectContaining({ items }),
+    );
+  });
 });
 
 describe('OrdersService brand-scoping', () => {

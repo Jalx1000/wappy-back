@@ -1,6 +1,17 @@
-import { Controller, Get, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Body,
+  Patch,
+  Delete,
+  Param,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiParam,
   ApiTags,
@@ -50,5 +61,14 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ): Promise<Order> {
     return this.ordersService.updateForBrand(brand.id, id, dto);
+  }
+
+  // Delete a single order (one card), leaving the contact's others intact.
+  @Delete(':id')
+  @ApiParam({ name: 'id', type: String, required: true })
+  @ApiNoContentResponse()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@CurrentBrand() brand: Brand, @Param('id') id: string): Promise<void> {
+    return this.ordersService.removeForBrand(brand.id, id);
   }
 }
