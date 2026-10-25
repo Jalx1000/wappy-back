@@ -5,6 +5,7 @@ import {
   Patch,
   Delete,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -14,6 +15,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -35,10 +37,18 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   // The kanban board: all orders of the brand (UI groups them by status).
+  // With ?contactId= it returns that contact's orders — used to warn with the
+  // count (N) before deleting the contact (S5).
   @Get()
+  @ApiQuery({ name: 'contactId', type: String, required: false })
   @ApiOkResponse({ type: [Order] })
-  list(@CurrentBrand() brand: Brand): Promise<Order[]> {
-    return this.ordersService.listForBrand(brand.id);
+  list(
+    @CurrentBrand() brand: Brand,
+    @Query('contactId') contactId?: string,
+  ): Promise<Order[]> {
+    return contactId
+      ? this.ordersService.findManyForContact(brand.id, contactId)
+      : this.ordersService.listForBrand(brand.id);
   }
 
   @Get(':id')

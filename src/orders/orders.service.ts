@@ -131,4 +131,16 @@ export class OrdersService {
     await this.getForBrand(brandId, id);
     await this.orderRepository.remove(id);
   }
+
+  /**
+   * Cascade: deletes every brand-owned order of a contact and returns how many.
+   * Called when the contact itself is deleted (S5).
+   */
+  async removeForContact(brandId: number, contactId: string): Promise<number> {
+    const orders = await this.findManyForContact(brandId, contactId);
+    for (const order of orders) {
+      await this.orderRepository.remove(order.id);
+    }
+    return orders.length;
+  }
 }

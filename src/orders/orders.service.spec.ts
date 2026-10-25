@@ -170,6 +170,20 @@ describe('OrdersService N-orders-per-contact (S4)', () => {
       expect.objectContaining({ items }),
     );
   });
+
+  it('should delete every order of a contact via removeForContact (S5 cascade)', async () => {
+    const { service, repo } = makeService();
+    (repo.findManyByContact as jest.Mock).mockResolvedValue([
+      { id: 'o1', brandId: 7, contactId: 'c1' },
+      { id: 'o2', brandId: 7, contactId: 'c1' },
+    ]);
+
+    const count = await service.removeForContact(7, 'c1');
+
+    expect(repo.remove).toHaveBeenCalledWith('o1');
+    expect(repo.remove).toHaveBeenCalledWith('o2');
+    expect(count).toBe(2);
+  });
 });
 
 describe('OrdersService brand-scoping', () => {

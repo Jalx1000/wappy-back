@@ -403,6 +403,11 @@ export class ContactsService {
     if (!contact || contact.brandId !== brandId) {
       throw new NotFoundException('Contact not found');
     }
+    // Cascade: delete the contact's orders too (S5). The UI warns with the
+    // count beforehand; here we hard-delete so no orphan orders linger.
+    if (this.orders) {
+      await this.orders.removeForContact(brandId, id);
+    }
     const identities = await this.identityRepository.findByContactId(id);
     for (const identity of identities) {
       await this.identityRepository.remove(identity.id);

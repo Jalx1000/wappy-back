@@ -11,6 +11,7 @@ const makeService = () => {
     update: jest.fn(),
     findByBrandWithPagination: jest.fn(),
     findByBrandEmailOrPhone: jest.fn(),
+    remove: jest.fn(),
   } as unknown as jest.Mocked<ContactRepository>;
 
   const identityRepo = {
@@ -19,10 +20,12 @@ const makeService = () => {
     update: jest.fn(),
     findByContactId: jest.fn(),
     findByContactIds: jest.fn(),
+    remove: jest.fn(),
   } as unknown as jest.Mocked<ContactIdentityRepository>;
 
   const orders = {
     ensureForContact: jest.fn().mockResolvedValue({ id: 'o1' }),
+    removeForContact: jest.fn().mockResolvedValue(2),
   } as unknown as jest.Mocked<OrdersService>;
 
   const service = new ContactsService(contactRepo, identityRepo, orders);
@@ -270,5 +273,29 @@ describe('ContactsService brand-scoped queries', () => {
     await expect(
       service.mergeForBrand(7, 'survivor', 'loser'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ContactsService.removeForBrand (S5 cascade)', () => {
+  it('should cascade-delete the contact orders then the contact', async () => {
+    const { service, contactRepo, identityRepo, orders } = makeService();
+    contactRepo.findById.mockResolvedValue({ id: 'c1', brandId: 7 } as never);
+    identityRepo.findByContactId.mockResolvedValue([] as never);
+
+    await service.removeForBrand(7, 'c1');
+
+    expect(orders.removeForContact).toHaveBeenCalledWith(7, 'c1');
+    expect(contactRepo.remove).toHaveBeenCalledWith('c1');
+  });
+
+  it('should 404 and not cascade when the contact belongs to another brand', async () => {
+    const { service, contactRepo, orders } = makeService();
+    contactRepo.findById.mockResolvedValue({ id: 'c1', brandId: 99 } as never);
+
+    await expect(service.removeForBrand(7, 'c1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(orders.removeForContact).not.toHaveBeenCalled();
+    expect(contactRepo.remove).not.toHaveBeenCalled();
   });
 });
