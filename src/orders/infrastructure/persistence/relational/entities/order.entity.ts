@@ -7,20 +7,48 @@ import {
   Column,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
+import { OrderItem } from '../../../../domain/order-item';
 
-// One order per contact (the kanban card). Unique on contactId enforces
-// idempotent auto-creation at the DB level; brandId indexed for board listing.
+// N orders per contact: a "lead" card auto-created on first contact, plus a
+// purchase order per WooCommerce checkout. contactId is indexed (non-unique);
+// (brandId, externalId) is unique so a retried checkout never duplicates.
 @Entity({
   name: 'order',
 })
-@Index(['contactId'], { unique: true })
+@Index(['contactId'])
 @Index(['brandId'])
+@Index(['brandId', 'externalId'], { unique: true })
 export class OrderEntity extends EntityRelationalHelper {
   @Column({
     nullable: true,
     type: String,
   })
   notes?: string | null;
+
+  @Column({
+    nullable: false,
+    type: String,
+    default: 'lead',
+  })
+  source?: string;
+
+  @Column({
+    nullable: true,
+    type: String,
+  })
+  externalId?: string | null;
+
+  @Column({
+    nullable: true,
+    type: String,
+  })
+  orderNumber?: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+  })
+  items?: OrderItem[] | null;
 
   @Column({
     nullable: false,

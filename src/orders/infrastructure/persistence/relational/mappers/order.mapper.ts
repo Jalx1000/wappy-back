@@ -7,6 +7,14 @@ export class OrderMapper {
     const domainEntity = new Order();
     domainEntity.notes = raw.notes;
 
+    domainEntity.source = raw.source;
+
+    domainEntity.externalId = raw.externalId;
+
+    domainEntity.orderNumber = raw.orderNumber;
+
+    domainEntity.items = raw.items;
+
     domainEntity.currency = raw.currency;
 
     domainEntity.total = raw.total;
@@ -27,6 +35,14 @@ export class OrderMapper {
   static toPersistence(domainEntity: Order): OrderEntity {
     const persistenceEntity = new OrderEntity();
     persistenceEntity.notes = domainEntity.notes;
+
+    persistenceEntity.source = domainEntity.source;
+
+    persistenceEntity.externalId = domainEntity.externalId;
+
+    persistenceEntity.orderNumber = domainEntity.orderNumber;
+
+    persistenceEntity.items = domainEntity.items;
 
     persistenceEntity.currency = domainEntity.currency;
 

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OrderRepository } from './infrastructure/persistence/order.repository';
 import { Order } from './domain/order';
+import { OrderItem } from './domain/order-item';
 import { DEFAULT_ORDER_STATUS, OrderStatus } from './domain/order-status';
 
 @Injectable()
@@ -8,19 +9,60 @@ export class OrdersService {
   constructor(private readonly orderRepository: OrderRepository) {}
 
   /**
-   * Idempotent: creates the contact's order in the first kanban stage if it has
-   * none, else returns the existing one. Called when a contact is created (both
-   * the ingest and manual paths), so every contact becomes a kanban card.
+   * Idempotent per contact: creates the contact's "lead" order in the first
+   * kanban stage if it has none, else returns the existing lead. A contact may
+   * also have purchase orders (source=woocommerce); this only owns the lead, so
+   * inbound messages never spawn a second empty card.
    */
   async ensureForContact(brandId: number, contactId: string): Promise<Order> {
-    const existing = await this.orderRepository.findByContact(contactId);
+    const existing = await this.orderRepository.findLeadByContact(contactId);
     if (existing) return existing;
     return this.orderRepository.create({
       brandId,
       contactId,
+      source: 'lead',
       status: DEFAULT_ORDER_STATUS,
       total: 0,
       currency: 'USD',
+      items: null,
+      externalId: null,
+      orderNumber: null,
+      notes: null,
+    });
+  }
+
+  /**
+   * Registers an order coming from an external store (WooCommerce) with its line
+   * items and real total. Idempotent by externalId: a retried checkout returns
+   * the stored order instead of creating a duplicate.
+   */
+  async createFromExternal(
+    brandId: number,
+    contactId: string,
+    dto: {
+      externalId: string;
+      orderNumber?: string | null;
+      currency?: string;
+      total?: number;
+      items?: OrderItem[] | null;
+      status?: OrderStatus;
+    },
+  ): Promise<Order> {
+    const existing = await this.orderRepository.findByExternalId(
+      brandId,
+      dto.externalId,
+    );
+    if (existing) return existing;
+    return this.orderRepository.create({
+      brandId,
+      contactId,
+      source: 'woocommerce',
+      externalId: dto.externalId,
+      orderNumber: dto.orderNumber ?? null,
+      currency: dto.currency ?? 'USD',
+      total: dto.total ?? 0,
+      items: dto.items ?? null,
+      status: dto.status ?? DEFAULT_ORDER_STATUS,
       notes: null,
     });
   }
@@ -39,13 +81,27 @@ export class OrdersService {
     return order;
   }
 
-  /** The order of a contact, brand-scoped (null when none). */
+  /** The lead order of a contact, brand-scoped (null when none). */
   async getForContact(
     brandId: number,
     contactId: string,
   ): Promise<Order | null> {
     const order = await this.orderRepository.findByContact(contactId);
     return order && order.brandId === brandId ? order : null;
+  }
+
+  /** All brand-owned orders of a contact (N per contact). */
+  async findManyForContact(
+    brandId: number,
+    contactId: string,
+  ): Promise<Order[]> {
+    const orders = await this.orderRepository.findManyByContact(contactId);
+    return orders.filter((o) => o.brandId === brandId);
+  }
+
+  /** How many orders a contact has — powers the delete-contact warning. */
+  countForContact(contactId: string): Promise<number> {
+    return this.orderRepository.countByContact(contactId);
   }
 
   /** Edits an order (move stage / total / notes), brand-scoped. */
@@ -62,5 +118,11 @@ export class OrdersService {
     });
     if (!updated) throw new NotFoundException('Order not found');
     return updated;
+  }
+
+  /** Deletes a single brand-owned order (404 if not the brand's). */
+  async removeForBrand(brandId: number, id: string): Promise<void> {
+    await this.getForBrand(brandId, id);
+    await this.orderRepository.remove(id);
   }
 }

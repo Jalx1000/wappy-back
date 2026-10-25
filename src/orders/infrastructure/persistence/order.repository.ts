@@ -21,8 +21,23 @@ export abstract class OrderRepository {
   // All orders of a brand — for the kanban board.
   abstract findByBrand(brandId: number): Promise<Order[]>;
 
-  // The single order of a contact (1:1) — the idempotency key for auto-creation.
+  // The single order of a contact (legacy 1:1 lookup).
   abstract findByContact(contactId: string): Promise<NullableType<Order>>;
+
+  // The contact's "lead" order — the idempotency key for auto-creation.
+  abstract findLeadByContact(contactId: string): Promise<NullableType<Order>>;
+
+  // All orders of a contact (N per contact).
+  abstract findManyByContact(contactId: string): Promise<Order[]>;
+
+  // A brand's order by external id (WooCommerce) — idempotency on checkout.
+  abstract findByExternalId(
+    brandId: number,
+    externalId: string,
+  ): Promise<NullableType<Order>>;
+
+  // How many orders a contact has — powers the delete-contact warning.
+  abstract countByContact(contactId: string): Promise<number>;
 
   abstract update(
     id: Order['id'],
