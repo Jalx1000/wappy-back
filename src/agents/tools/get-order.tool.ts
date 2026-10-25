@@ -3,9 +3,10 @@ import { OrdersService } from '../../orders/orders.service';
 import { AgentRunContext, AgentTool } from '../runtime/agent-runtime';
 
 /**
- * Lets the agent read the order (kanban card) of the conversation's customer:
- * its stage, total and notes. Brand-scoped via `ctx.brandId`; uses
- * `ctx.contactId` to resolve the current conversation's order.
+ * Lets the agent read the latest order of the conversation's customer: its
+ * stage, total, notes and line items. A customer may have several orders;
+ * this returns the most recent. Brand-scoped via `ctx.brandId`; uses
+ * `ctx.contactId` to resolve the conversation's customer.
  */
 @Injectable()
 export class GetOrderTool implements AgentTool {
@@ -13,8 +14,8 @@ export class GetOrderTool implements AgentTool {
 
   readonly name = 'get_order';
   readonly description =
-    "Get the order (and its pipeline stage) of this conversation's customer. " +
-    'Use to answer about order status, stage or total.';
+    "Get the latest order (and its pipeline stage) of this conversation's " +
+    'customer. Use to answer about order status, stage, total or items.';
   readonly parameters = {
     type: 'object',
     properties: {},
@@ -27,7 +28,10 @@ export class GetOrderTool implements AgentTool {
     if (!ctx.contactId) {
       return { found: false, reason: 'no contact in this conversation' };
     }
-    const order = await this.orders.getForContact(ctx.brandId, ctx.contactId);
+    const order = await this.orders.getLatestForContact(
+      ctx.brandId,
+      ctx.contactId,
+    );
     if (!order) return { found: false, reason: 'no order for this customer' };
     return {
       found: true,
@@ -36,6 +40,7 @@ export class GetOrderTool implements AgentTool {
         total: order.total ?? 0,
         currency: order.currency ?? 'USD',
         notes: order.notes ?? null,
+        items: order.items ?? [],
       },
     };
   }

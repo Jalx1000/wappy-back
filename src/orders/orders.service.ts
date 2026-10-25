@@ -104,6 +104,15 @@ export class OrdersService {
     return this.orderRepository.countByContact(contactId);
   }
 
+  /** The contact's most recent order (findManyForContact is createdAt DESC). */
+  async getLatestForContact(
+    brandId: number,
+    contactId: string,
+  ): Promise<Order | null> {
+    const orders = await this.findManyForContact(brandId, contactId);
+    return orders[0] ?? null;
+  }
+
   /** Edits an order (move stage / total / notes / line items), brand-scoped. */
   async updateForBrand(
     brandId: number,
