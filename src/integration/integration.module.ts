@@ -6,9 +6,11 @@ import { IntegrationWhatsappController } from './whatsapp/integration-whatsapp.c
 import { IntegrationWhatsappService } from './whatsapp/integration-whatsapp.service';
 import { IntegrationOrdersController } from './orders/integration-orders.controller';
 import { IntegrationProductsController } from './products/integration-products.controller';
+import { IntegrationCategoriesController } from './categories/integration-categories.controller';
 import { ContactsModule } from '../contacts/contacts.module';
 import { OrdersModule } from '../orders/orders.module';
 import { ProductsModule } from '../products/products.module';
+import { CategoriesModule } from '../categories/categories.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { MailerModule } from '../mailer/mailer.module';
 import { ConnectionsModule } from '../connections/connections.module';
@@ -27,6 +29,7 @@ import { IdempotencyService } from './idempotency/idempotency.service';
     ContactsModule,
     OrdersModule,
     ProductsModule,
+    CategoriesModule,
     ApiKeysModule,
     MailerModule,
     ConnectionsModule,
@@ -38,6 +41,7 @@ import { IdempotencyService } from './idempotency/idempotency.service';
     IntegrationWhatsappController,
     IntegrationOrdersController,
     IntegrationProductsController,
+    IntegrationCategoriesController,
   ],
   providers: [
     IntegrationEmailsService,
