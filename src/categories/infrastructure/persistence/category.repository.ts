@@ -18,6 +18,13 @@ export abstract class CategoryRepository {
 
   abstract findByIds(ids: Category['id'][]): Promise<Category[]>;
 
+  abstract findByBrandAndName(
+    brandId: number,
+    name: string,
+  ): Promise<NullableType<Category>>;
+
+  abstract findAllByBrand(brandId: number): Promise<Category[]>;
+
   abstract update(
     id: Category['id'],
     payload: DeepPartial<Category>,

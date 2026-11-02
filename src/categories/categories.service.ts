@@ -69,4 +69,33 @@ export class CategoriesService {
   remove(id: Category['id']) {
     return this.categoryRepository.remove(id);
   }
+
+  /** All categories of a brand, name-sorted. Powers the product form combobox. */
+  findAllByBrand(brandId: number): Promise<Category[]> {
+    return this.categoryRepository.findAllByBrand(brandId);
+  }
+
+  /**
+   * Register a category for a brand if it does not exist yet (flat taxonomy
+   * materialized from product writes). Idempotent and race-safe: a concurrent
+   * insert that trips the unique (brandId, name) index resolves to the existing
+   * row. Blank names are ignored.
+   */
+  async findOrCreate(brandId: number, name: string): Promise<Category | null> {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return null;
+
+    const existing = await this.categoryRepository.findByBrandAndName(
+      brandId,
+      trimmed,
+    );
+    if (existing) return existing;
+
+    try {
+      return await this.categoryRepository.create({ brandId, name: trimmed });
+    } catch {
+      // Lost a race on the unique index — the row now exists.
+      return this.categoryRepository.findByBrandAndName(brandId, trimmed);
+    }
+  }
 }

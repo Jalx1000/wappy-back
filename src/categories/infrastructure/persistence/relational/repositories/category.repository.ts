@@ -52,6 +52,26 @@ export class CategoryRelationalRepository implements CategoryRepository {
     return entities.map((entity) => CategoryMapper.toDomain(entity));
   }
 
+  async findByBrandAndName(
+    brandId: number,
+    name: string,
+  ): Promise<NullableType<Category>> {
+    const entity = await this.categoryRepository.findOne({
+      where: { brandId, name },
+    });
+
+    return entity ? CategoryMapper.toDomain(entity) : null;
+  }
+
+  async findAllByBrand(brandId: number): Promise<Category[]> {
+    const entities = await this.categoryRepository.find({
+      where: { brandId },
+      order: { name: 'ASC' },
+    });
+
+    return entities.map((entity) => CategoryMapper.toDomain(entity));
+  }
+
   async update(
     id: Category['id'],
     payload: Partial<Category>,

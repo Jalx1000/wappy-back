@@ -1,6 +1,7 @@
 import { ProductsService } from './products.service';
 import { ProductRepository } from './infrastructure/persistence/product.repository';
 import { WebhookDispatchService } from '../webhook-endpoints/webhook-dispatch.service';
+import { CategoriesService } from '../categories/categories.service';
 
 const makeService = () => {
   const repo = {
@@ -13,8 +14,11 @@ const makeService = () => {
   const dispatch = {
     dispatch: jest.fn(() => Promise.resolve()),
   } as unknown as jest.Mocked<WebhookDispatchService>;
-  const service = new ProductsService(repo, dispatch);
-  return { service, repo, dispatch };
+  const categories = {
+    findOrCreate: jest.fn(() => Promise.resolve({ id: 'cat1' })),
+  } as unknown as jest.Mocked<CategoriesService>;
+  const service = new ProductsService(repo, dispatch, categories);
+  return { service, repo, dispatch, categories };
 };
 
 const base = {
@@ -51,6 +55,18 @@ describe('ProductsService.upsertFromExternal (S2/S3)', () => {
     );
     expect(created).toBe(true);
     expect(product.id).toBe('new-id');
+  });
+
+  it('should register the category in the brand taxonomy on upsert (S2)', async () => {
+    const { service, repo, categories } = makeService();
+    (repo.findByExternalId as jest.Mock).mockResolvedValue(null);
+
+    await service.upsertFromExternal(7, base);
+
+    expect(categories.findOrCreate).toHaveBeenCalledWith(
+      7,
+      'Didácticos y educativos',
+    );
   });
 
   it('should update in place when external_id already exists (created:false)', async () => {

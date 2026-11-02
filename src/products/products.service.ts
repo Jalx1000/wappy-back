@@ -11,6 +11,7 @@ import {
   WebhookDispatchService,
   WebhookEventType,
 } from '../webhook-endpoints/webhook-dispatch.service';
+import { CategoriesService } from '../categories/categories.service';
 
 /** Fields an external catalog (e.g. WooCommerce) sends to upsert a product. */
 export type ExternalProductInput = {
@@ -34,7 +35,17 @@ export class ProductsService {
     // Dependencies here
     private readonly productRepository: ProductRepository,
     private readonly webhookDispatch: WebhookDispatchService,
+    private readonly categories: CategoriesService,
   ) {}
+
+  /**
+   * Register a product's category in the brand's flat taxonomy. Derived and
+   * best-effort: a registry failure must never break the product write, so it
+   * is swallowed (the product row remains the source of truth).
+   */
+  private async registerCategory(brandId: number, name: string): Promise<void> {
+    await this.categories.findOrCreate(brandId, name).catch(() => undefined);
+  }
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
     // Do not remove comment below.
@@ -56,6 +67,7 @@ export class ProductsService {
       // <creating-property-payload />
       product,
     );
+    await this.registerCategory(created.brandId, created.category);
     this.emitProductEvent('product.created', created);
     return created;
   }
@@ -117,6 +129,9 @@ export class ProductsService {
       payload,
     );
     if (updated) {
+      if (payload.category) {
+        await this.registerCategory(updated.brandId, updated.category);
+      }
       this.emitProductEvent('product.updated', updated);
     }
     return updated;
@@ -156,6 +171,7 @@ export class ProductsService {
         category: data.category,
         attributes: data.attributes ?? null,
       });
+      await this.registerCategory(brandId, data.category);
       return { product: updated as Product, created: false };
     }
 
@@ -173,6 +189,7 @@ export class ProductsService {
     product.brandId = brandId;
 
     const createdProduct = await this.productRepository.create(product);
+    await this.registerCategory(brandId, data.category);
     return { product: createdProduct, created: true };
   }
 
