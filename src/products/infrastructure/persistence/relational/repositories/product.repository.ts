@@ -49,6 +49,17 @@ export class ProductRelationalRepository implements ProductRepository {
     return entity ? ProductMapper.toDomain(entity) : null;
   }
 
+  async findByExternalId(
+    brandId: number,
+    externalId: string,
+  ): Promise<NullableType<Product>> {
+    const entity = await this.productRepository.findOne({
+      where: { brandId, externalId },
+    });
+
+    return entity ? ProductMapper.toDomain(entity) : null;
+  }
+
   async findByIds(ids: Product['id'][]): Promise<Product[]> {
     const entities = await this.productRepository.find({
       where: { id: In(ids) },

@@ -6,7 +6,23 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductRepository } from './infrastructure/persistence/product.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
-import { Product } from './domain/product';
+import { Product, ProductAttribute } from './domain/product';
+
+/** Fields an external catalog (e.g. WooCommerce) sends to upsert a product. */
+export type ExternalProductInput = {
+  externalId: string;
+  sku: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  stock?: number | null;
+  image?: string | null;
+  isActive?: boolean;
+  category: string;
+  attributes?: ProductAttribute[] | null;
+  /** Where the change originated; `woocommerce` means it came in via this API. */
+  origin?: string | null;
+};
 
 @Injectable()
 export class ProductsService {
@@ -97,5 +113,51 @@ export class ProductsService {
 
   remove(id: Product['id']) {
     return this.productRepository.remove(id);
+  }
+
+  /**
+   * Upsert a product coming from an external catalog, keyed by
+   * `(brandId, externalId)`. Creates when the external id is unseen, updates in
+   * place otherwise. See docs/contracts/products-sync.md §2.
+   */
+  async upsertFromExternal(
+    brandId: number,
+    data: ExternalProductInput,
+  ): Promise<{ product: Product; created: boolean }> {
+    const existing = await this.productRepository.findByExternalId(
+      brandId,
+      data.externalId,
+    );
+
+    if (existing) {
+      const updated = await this.productRepository.update(existing.id, {
+        sku: data.sku,
+        name: data.name,
+        description: data.description ?? null,
+        price: data.price,
+        stock: data.stock ?? existing.stock,
+        image: data.image ?? null,
+        isActive: data.isActive ?? true,
+        category: data.category,
+        attributes: data.attributes ?? null,
+      });
+      return { product: updated as Product, created: false };
+    }
+
+    const product = new Product();
+    product.externalId = data.externalId;
+    product.sku = data.sku;
+    product.name = data.name;
+    product.description = data.description ?? null;
+    product.price = data.price;
+    product.stock = data.stock ?? 1;
+    product.image = data.image ?? null;
+    product.isActive = data.isActive ?? true;
+    product.category = data.category;
+    product.attributes = data.attributes ?? null;
+    product.brandId = brandId;
+
+    const createdProduct = await this.productRepository.create(product);
+    return { product: createdProduct, created: true };
   }
 }

@@ -18,6 +18,11 @@ export abstract class ProductRepository {
 
   abstract findById(id: Product['id']): Promise<NullableType<Product>>;
 
+  abstract findByExternalId(
+    brandId: number,
+    externalId: string,
+  ): Promise<NullableType<Product>>;
+
   abstract findByIds(ids: Product['id'][]): Promise<Product[]>;
 
   abstract update(
