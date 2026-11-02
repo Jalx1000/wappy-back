@@ -110,8 +110,11 @@ import { IntegrationModule } from './integration/integration.module';
 
 import { WebhookEndpointsModule } from './webhook-endpoints/webhook-endpoints.module';
 
+import { CategoriesModule } from './categories/categories.module';
+
 @Module({
   imports: [
+    CategoriesModule,
     WebhookEndpointsModule,
     IntegrationModule,
     ApiKeysModule,
