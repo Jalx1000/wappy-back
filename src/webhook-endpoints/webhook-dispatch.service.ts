@@ -3,14 +3,17 @@ import { createHmac } from 'crypto';
 import axios from 'axios';
 import { WebhookEndpointRepository } from './infrastructure/persistence/webhook-endpoint.repository';
 
-/** Events Wappy emits to integrators (brief §3). */
+/** Events Wappy emits to integrators (brief §3 + products-sync §4). */
 export type WebhookEventType =
   | 'email.delivered'
   | 'email.bounced'
   | 'contact.unsubscribed'
   | 'whatsapp.delivered'
   | 'whatsapp.read'
-  | 'message.inbound';
+  | 'message.inbound'
+  | 'product.created'
+  | 'product.updated'
+  | 'product.deleted';
 
 @Injectable()
 export class WebhookDispatchService {

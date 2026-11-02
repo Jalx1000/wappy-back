@@ -7,6 +7,10 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductRepository } from './infrastructure/persistence/product.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Product, ProductAttribute } from './domain/product';
+import {
+  WebhookDispatchService,
+  WebhookEventType,
+} from '../webhook-endpoints/webhook-dispatch.service';
 
 /** Fields an external catalog (e.g. WooCommerce) sends to upsert a product. */
 export type ExternalProductInput = {
@@ -29,6 +33,7 @@ export class ProductsService {
   constructor(
     // Dependencies here
     private readonly productRepository: ProductRepository,
+    private readonly webhookDispatch: WebhookDispatchService,
   ) {}
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
@@ -46,11 +51,13 @@ export class ProductsService {
     product.category = createProductDto.category;
     product.brandId = createProductDto.brandId;
 
-    return this.productRepository.create(
+    const created = await this.productRepository.create(
       // Do not remove comment below.
       // <creating-property-payload />
       product,
     );
+    this.emitProductEvent('product.created', created);
+    return created;
   }
 
   findAllWithPagination({
@@ -103,16 +110,24 @@ export class ProductsService {
     if (updateProductDto.brandId !== undefined)
       payload.brandId = updateProductDto.brandId;
 
-    return this.productRepository.update(
+    const updated = await this.productRepository.update(
       id,
       // Do not remove comment below.
       // <updating-property-payload />
       payload,
     );
+    if (updated) {
+      this.emitProductEvent('product.updated', updated);
+    }
+    return updated;
   }
 
-  remove(id: Product['id']) {
-    return this.productRepository.remove(id);
+  async remove(id: Product['id']): Promise<void> {
+    const existing = await this.productRepository.findById(id);
+    await this.productRepository.remove(id);
+    if (existing) {
+      this.emitProductEvent('product.deleted', existing);
+    }
   }
 
   /**
@@ -184,5 +199,28 @@ export class ProductsService {
     }
 
     return { id: existing.id, deactivated: true };
+  }
+
+  /**
+   * Fire-and-forget webhook for a product change that originated in Wappy (the
+   * dashboard). The external-sync path (`upsertFromExternal` /
+   * `deactivateByExternalId`) deliberately does NOT emit, so a change that came
+   * from WooCommerce never echoes back (contract §5, anti-loop).
+   */
+  private emitProductEvent(event: WebhookEventType, product: Product): void {
+    void this.webhookDispatch.dispatch(product.brandId, event, {
+      id: product.id,
+      external_id: product.externalId ?? null,
+      sku: product.sku,
+      name: product.name,
+      description: product.description ?? null,
+      price: product.price,
+      stock: product.stock,
+      image: product.image ?? null,
+      isActive: product.isActive,
+      category: product.category,
+      attributes: product.attributes ?? null,
+      origin: 'wappy',
+    });
   }
 }

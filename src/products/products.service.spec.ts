@@ -1,14 +1,20 @@
 import { ProductsService } from './products.service';
 import { ProductRepository } from './infrastructure/persistence/product.repository';
+import { WebhookDispatchService } from '../webhook-endpoints/webhook-dispatch.service';
 
 const makeService = () => {
   const repo = {
     findByExternalId: jest.fn(),
+    findById: jest.fn(),
     create: jest.fn((p) => Promise.resolve({ ...p, id: 'new-id' })),
     update: jest.fn((id, payload) => Promise.resolve({ id, ...payload })),
+    remove: jest.fn(() => Promise.resolve()),
   } as unknown as jest.Mocked<ProductRepository>;
-  const service = new ProductsService(repo);
-  return { service, repo };
+  const dispatch = {
+    dispatch: jest.fn(() => Promise.resolve()),
+  } as unknown as jest.Mocked<WebhookDispatchService>;
+  const service = new ProductsService(repo, dispatch);
+  return { service, repo, dispatch };
 };
 
 const base = {
@@ -103,5 +109,36 @@ describe('ProductsService.deactivateByExternalId (S4)', () => {
 
     expect(repo.update).not.toHaveBeenCalled();
     expect(res).toEqual({ id: null, deactivated: true });
+  });
+});
+
+describe('ProductsService webhook emission (S5/S6)', () => {
+  const dashboardDto = {
+    sku: 'WAP-001',
+    name: 'Set de bloques',
+    price: 220,
+    category: 'Maderas',
+    brandId: 7,
+  };
+
+  it('should emit product.created with origin "wappy" when created from the dashboard', async () => {
+    const { service, dispatch } = makeService();
+
+    await service.create(dashboardDto as never);
+
+    expect(dispatch.dispatch).toHaveBeenCalledWith(
+      7,
+      'product.created',
+      expect.objectContaining({ origin: 'wappy', name: 'Set de bloques' }),
+    );
+  });
+
+  it('should NOT emit a webhook when the change came from the external API (anti-loop)', async () => {
+    const { service, repo, dispatch } = makeService();
+    (repo.findByExternalId as jest.Mock).mockResolvedValue(null);
+
+    await service.upsertFromExternal(7, base);
+
+    expect(dispatch.dispatch).not.toHaveBeenCalled();
   });
 });

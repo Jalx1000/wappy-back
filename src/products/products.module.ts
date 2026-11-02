@@ -6,9 +6,14 @@ import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 import { RelationalProductPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 import { BrandsModule } from '../brands/brands.module';
+import { WebhookEndpointsModule } from '../webhook-endpoints/webhook-endpoints.module';
 
 @Module({
-  imports: [RelationalProductPersistenceModule, BrandsModule],
+  imports: [
+    RelationalProductPersistenceModule,
+    BrandsModule,
+    WebhookEndpointsModule,
+  ],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService, RelationalProductPersistenceModule],
