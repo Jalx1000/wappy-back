@@ -14,6 +14,8 @@ export class ProductMapper {
     domainEntity.image = raw.image;
     domainEntity.isActive = raw.isActive;
     domainEntity.category = raw.category;
+    domainEntity.externalId = raw.externalId;
+    domainEntity.attributes = raw.attributes;
     domainEntity.brandId = raw.brandId;
     if (raw.brand) {
       domainEntity.brand = Object.assign(new Brand(), {
@@ -41,6 +43,8 @@ export class ProductMapper {
     persistenceEntity.image = domainEntity.image ?? null;
     persistenceEntity.isActive = domainEntity.isActive;
     persistenceEntity.category = domainEntity.category;
+    persistenceEntity.externalId = domainEntity.externalId ?? null;
+    persistenceEntity.attributes = domainEntity.attributes ?? null;
     persistenceEntity.brandId = domainEntity.brandId;
     persistenceEntity.createdAt = domainEntity.createdAt;
     persistenceEntity.updatedAt = domainEntity.updatedAt;
