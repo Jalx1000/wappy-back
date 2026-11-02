@@ -160,4 +160,29 @@ export class ProductsService {
     const createdProduct = await this.productRepository.create(product);
     return { product: createdProduct, created: true };
   }
+
+  /**
+   * Soft-delete a product by its external id (sets `isActive=false`). Idempotent:
+   * a product that is missing or already inactive resolves without error.
+   * See docs/contracts/products-sync.md §2.
+   */
+  async deactivateByExternalId(
+    brandId: number,
+    externalId: string,
+  ): Promise<{ id: string | null; deactivated: boolean }> {
+    const existing = await this.productRepository.findByExternalId(
+      brandId,
+      externalId,
+    );
+
+    if (!existing) {
+      return { id: null, deactivated: true };
+    }
+
+    if (existing.isActive) {
+      await this.productRepository.update(existing.id, { isActive: false });
+    }
+
+    return { id: existing.id, deactivated: true };
+  }
 }

@@ -47,4 +47,18 @@ describe('IntegrationProductsController (S2/S3)', () => {
     );
     expect(res).toEqual({ id: 'p1', external_id: 'wc_128', created: true });
   });
+
+  it('should soft-delete by external_id from the path param', async () => {
+    const products = {
+      deactivateByExternalId: jest.fn(() =>
+        Promise.resolve({ id: 'p1', deactivated: true }),
+      ),
+    } as unknown as jest.Mocked<ProductsService>;
+    const controller = new IntegrationProductsController(products);
+
+    const res = await controller.deactivate(req as never, 'wc_128');
+
+    expect(products.deactivateByExternalId).toHaveBeenCalledWith(7, 'wc_128');
+    expect(res).toEqual({ id: 'p1', external_id: 'wc_128', deactivated: true });
+  });
 });

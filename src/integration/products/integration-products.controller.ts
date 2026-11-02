@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  Delete,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -54,5 +56,18 @@ export class IntegrationProductsController {
       external_id: product.externalId as string,
       created,
     };
+  }
+
+  @Delete(':externalId')
+  async deactivate(
+    @Req() req: { brand: Brand },
+    @Param('externalId') externalId: string,
+  ): Promise<{ id: string | null; external_id: string; deactivated: boolean }> {
+    const { id } = await this.products.deactivateByExternalId(
+      req.brand.id,
+      externalId,
+    );
+
+    return { id, external_id: externalId, deactivated: true };
   }
 }

@@ -67,3 +67,41 @@ describe('ProductsService.upsertFromExternal (S2/S3)', () => {
     expect(created).toBe(false);
   });
 });
+
+describe('ProductsService.deactivateByExternalId (S4)', () => {
+  it('should soft-delete an active product (isActive=false)', async () => {
+    const { service, repo } = makeService();
+    (repo.findByExternalId as jest.Mock).mockResolvedValue({
+      id: 'existing',
+      isActive: true,
+    });
+
+    const res = await service.deactivateByExternalId(7, 'wc_128');
+
+    expect(repo.update).toHaveBeenCalledWith('existing', { isActive: false });
+    expect(res).toEqual({ id: 'existing', deactivated: true });
+  });
+
+  it('should be idempotent when the product is already inactive', async () => {
+    const { service, repo } = makeService();
+    (repo.findByExternalId as jest.Mock).mockResolvedValue({
+      id: 'existing',
+      isActive: false,
+    });
+
+    const res = await service.deactivateByExternalId(7, 'wc_128');
+
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(res).toEqual({ id: 'existing', deactivated: true });
+  });
+
+  it('should be idempotent when the external_id does not exist', async () => {
+    const { service, repo } = makeService();
+    (repo.findByExternalId as jest.Mock).mockResolvedValue(null);
+
+    const res = await service.deactivateByExternalId(7, 'wc_999');
+
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(res).toEqual({ id: null, deactivated: true });
+  });
+});
